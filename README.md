@@ -7,22 +7,57 @@ Incluye el lenguaje completo (scanner sensible a la indentación, parser,
 intérprete concurrente) y un entorno gráfico con editor coloreado, ciudad
 navegable, panel de robots y consola.
 
-## Cómo se usa
+## Cómo se ejecuta
 
-```bash
-javac -encoding UTF-8 -d out $(find src -name "*.java")
+Necesita **JDK 21 o superior** (usa records sellados y `switch` con patrones).
+La clase principal es `rinfo.ui.Main`.
+
+### Desde IntelliJ
+
+Abrir la carpeta como proyecto y ejecutar `src/rinfo/ui/Main.java` (botón
+derecho → *Run 'Main.main()'*). El módulo ya viene con `src` como raíz de
+fuentes y `out` como salida.
+
+### Desde la consola
+
+PowerShell:
+
+```powershell
+javac -encoding UTF-8 -d out (Get-ChildItem -Recurse src -Filter *.java).FullName
 java -cp out rinfo.ui.Main
 ```
 
-Sin argumentos abre la interfaz. Para correr un programa sin ventana:
+bash:
 
 ```bash
-java -cp out rinfo.Rinfo ejemplos/hola.rinfo
+javac -encoding UTF-8 -d out $(find src -name '*.java')
+java -cp out rinfo.ui.Main
 ```
 
-En la interfaz: **F9** compila, **F5** ejecuta, **F7** avanza un paso por robot.
-Con el mouse sobre la ciudad se colocan flores, papeles y obstáculos (clic
-derecho borra); la herramienta se elige en la barra superior.
+### Sin ventana
+
+Con un archivo como argumento el programa corre en modo texto:
+
+```bash
+java -Dstdout.encoding=UTF-8 -cp out rinfo.Rinfo ejemplos/hola.rinfo
+```
+
+`-Dstdout.encoding=UTF-8` sólo hace falta en Windows, para que los acentos
+salgan bien en la consola. Acepta también `--velocidad <ms>` para demorar cada
+acción.
+
+## Cómo se usa la interfaz
+
+| Tecla | Acción |
+|---|---|
+| `F9` | compilar (marca la línea del error) |
+| `F5` | ejecutar, o continuar si está en pausa |
+| `F7` | avanzar una acción por robot |
+
+Con el mouse sobre la ciudad se colocan flores, papeles y obstáculos; el clic
+derecho borra la esquina y la herramienta se elige en la barra superior. Los
+sliders regulan la velocidad y el zoom. El panel de la derecha muestra la
+posición y la bolsa de cada robot, y las variables del que esté seleccionado.
 
 ## El lenguaje
 
