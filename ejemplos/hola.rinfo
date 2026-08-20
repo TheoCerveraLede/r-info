@@ -1,0 +1,22 @@
+programa Hola
+areas
+  zona: AreaP(1, 1, 10, 10)
+robots
+  robot caminante
+  variables
+    pasos: numero
+  comenzar
+    pasos:= 0
+    repetir 4
+      mover
+      pasos:= pasos + 1
+      derecha
+    Informar('pasos', pasos)
+    Informar('avenida', PosAv, 'calle', PosCa)
+  fin
+variables
+  r1: caminante
+comenzar
+  AsignarArea(r1, zona)
+  Iniciar(r1, 2, 2)
+fin

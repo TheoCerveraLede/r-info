@@ -1,0 +1,38 @@
+programa Mensajes
+areas
+  izq: AreaP(1, 1, 5, 5)
+  der: AreaP(6, 1, 10, 5)
+robots
+  robot emisor
+  variables
+    i: numero
+  comenzar
+    i:= 1
+    repetir 3
+      EnviarMensaje(i * 10, r2)
+      mover
+      i:= i + 1
+
+  fin
+
+  robot receptor
+  variables
+    v: numero
+    j: numero
+  comenzar
+    j:= 1
+    repetir 3
+      RecibirMensaje(v, r1)
+      Informar('recibi', v)
+      mover
+      j:= j + 1
+  fin
+variables
+  r1: emisor
+  r2: receptor
+comenzar
+  AsignarArea(r1, izq)
+  AsignarArea(r2, der)
+  Iniciar(r1, 1, 1)
+  Iniciar(r2, 6, 1)
+fin

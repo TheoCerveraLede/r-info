@@ -1,0 +1,54 @@
+programa EsquinaCompartida
+{ Dos robots comparten un area y se turnan la esquina (4, 4) con BloquearEsquina. }
+procesos
+  proceso caminarCalles(E cantidad: numero)
+  variables
+    i: numero
+  comenzar
+    i:= 1
+    mientras i <= cantidad
+      mover
+      i:= i + 1
+  fin
+
+  proceso caminarAvenidas(E cantidad: numero)
+  variables
+    i: numero
+  comenzar
+    derecha
+    i:= 1
+    mientras i <= cantidad
+      mover
+      i:= i + 1
+  fin
+areas
+  centro: AreaC(1, 1, 6, 6)
+robots
+  robot porCalle
+  comenzar
+    caminarCalles(2)
+    BloquearEsquina(4, 4)
+    Informar('porCalle', 'usa', PosAv, PosCa)
+    repetir 4
+      derecha
+    LiberarEsquina(4, 4)
+  fin
+
+  robot porAvenida
+  comenzar
+    caminarAvenidas(1)
+    BloquearEsquina(4, 4)
+    Informar('porAvenida', 'usa', PosAv, PosCa)
+    repetir 4
+      derecha
+    LiberarEsquina(4, 4)
+  fin
+variables
+  a: porCalle
+  b: porAvenida
+comenzar
+  AsignarArea(a, centro)
+  AsignarArea(b, centro)
+  Iniciar(a, 4, 1)
+  Iniciar(b, 2, 4)
+fin

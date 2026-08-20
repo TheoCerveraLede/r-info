@@ -1,0 +1,47 @@
+programa Recolectar
+procesos
+  proceso avanzarJuntando(E cuadras: numero; S juntadas: numero)
+  variables
+    i: numero
+  comenzar
+    juntadas:= 0
+    i:= 1
+    mientras i <= cuadras
+      si HayFlorEnLaEsquina
+        tomarFlor
+        juntadas:= juntadas + 1
+      sino
+        Informar('vacia', PosAv, PosCa)
+      mover
+      i:= i + 1
+  fin
+
+  proceso girarEn(ES vueltas: numero)
+  comenzar
+    derecha
+    vueltas:= vueltas + 1
+  fin
+areas
+  este: AreaP(1, 1, 5, 5)
+  oeste: AreaC(6, 1, 10, 5)
+robots
+  robot barrendero
+  variables
+    total: numero
+    giros: numero
+  comenzar
+    giros:= 0
+    avanzarJuntando(3, total)
+    girarEn(giros)
+    girarEn(giros)
+    Informar('total', total, 'giros', giros)
+    { este comentario no cambia la indentacion }
+    si total = 0 & ~HayFlorEnLaBolsa
+      Informar('nada')
+  fin
+variables
+  b1: barrendero
+comenzar
+  AsignarArea(b1, este)
+  Iniciar(b1, 1, 1)
+fin
