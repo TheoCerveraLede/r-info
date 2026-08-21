@@ -17,6 +17,7 @@ import rinfo.ast.Sent;
 import rinfo.ast.Tipo;
 import rinfo.ast.TipoRobot;
 import rinfo.runtime.Area;
+import rinfo.runtime.Buzon;
 import rinfo.runtime.Ciudad;
 import rinfo.runtime.TipoArea;
 
@@ -68,6 +69,24 @@ public final class Parser {
     private String tomarIdentificador() throws ErrorCompilacion {
         if (!tokenActual.es(TipoToken.IDENTIFER)) {
             throw error("se esperaba un identificador en lugar de " + descripcion(tokenActual));
+        }
+        String nombre = tokenActual.escritura;
+        siguienteToken();
+        return nombre;
+    }
+
+    /**
+     * Remitente de un {@code RecibirMensaje}: el nombre de un robot o el
+     * comodín {@code *}, que acepta un mensaje de cualquiera.
+     */
+    private String tomarRemitente() throws ErrorCompilacion {
+        if (tokenActual.es(TipoToken.MULT)) {
+            siguienteToken();
+            return Buzon.COMODIN;
+        }
+        if (!tokenActual.es(TipoToken.IDENTIFER)) {
+            throw error("se esperaba el nombre de un robot o el comodín " + Buzon.COMODIN
+                    + " en lugar de " + descripcion(tokenActual));
         }
         String nombre = tokenActual.escritura;
         siguienteToken();
@@ -605,6 +624,10 @@ public final class Parser {
                 tomar(TipoToken.LPAREN);
                 Expr valor = parseExpresion();
                 tomar(TipoToken.COMA);
+                if (tokenActual.es(TipoToken.MULT)) {
+                    throw error("el comodín " + Buzon.COMODIN + " sólo sirve para recibir: "
+                            + "EnviarMensaje necesita el nombre de un robot");
+                }
                 String destino = tomarIdentificador();
                 tomar(TipoToken.RPAREN);
                 return new Sent.EnviarMensaje(valor, destino, fila);
@@ -614,7 +637,7 @@ public final class Parser {
                 tomar(TipoToken.LPAREN);
                 String variable = tomarIdentificador();
                 tomar(TipoToken.COMA);
-                String origen = tomarIdentificador();
+                String origen = tomarRemitente();
                 tomar(TipoToken.RPAREN);
                 return new Sent.RecibirMensaje(variable, origen, fila);
             }

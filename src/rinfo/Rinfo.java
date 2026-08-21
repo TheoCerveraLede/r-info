@@ -38,13 +38,18 @@ public final class Rinfo {
               --papel AV,CA[,N]         deja N papeles en esa esquina
               --obstaculo AV,CA         pone un obstáculo en esa esquina
 
-              --azar-flor N[,ZONA]      reparte N flores al azar
+              --zona-flor N[,ZONA]      deja N flores en CADA esquina de la zona
+              --zona-papel N[,ZONA]     deja N papeles en cada esquina
+              --zona-obstaculo N[,ZONA] pone un obstáculo en cada esquina (N se ignora)
+
+              --azar-flor N[,ZONA]      reparte N flores al azar por la zona
               --azar-papel N[,ZONA]     reparte N papeles al azar
               --azar-obstaculo N[,ZONA] reparte N obstáculos al azar
 
-            ZONA es AV1,CA1,AV2,CA2; si se omite, se usa toda la ciudad. El
-            reparto al azar deja una unidad por esquina y no pisa esquinas
-            ocupadas. Las opciones de colocación se pueden repetir.
+            ZONA es AV1,CA1,AV2,CA2; si se omite, se usa toda la ciudad. La
+            diferencia entre --zona-* y --azar-*: el primero pone N en cada
+            esquina, el segundo reparte N en total, una por esquina y sin pisar
+            las ocupadas. Las opciones de colocación se pueden repetir.
             """;
 
     private Rinfo() {
@@ -77,6 +82,10 @@ public final class Rinfo {
                     case "--flor" -> colocar(ciudad, Contenido.FLOR, valor(args, ++i, opcion));
                     case "--papel" -> colocar(ciudad, Contenido.PAPEL, valor(args, ++i, opcion));
                     case "--obstaculo" -> colocar(ciudad, Contenido.OBSTACULO, valor(args, ++i, opcion));
+                    case "--zona-flor" -> enZona(ciudad, Contenido.FLOR, valor(args, ++i, opcion));
+                    case "--zona-papel" -> enZona(ciudad, Contenido.PAPEL, valor(args, ++i, opcion));
+                    case "--zona-obstaculo" ->
+                            enZona(ciudad, Contenido.OBSTACULO, valor(args, ++i, opcion));
                     case "--azar-flor" -> alAzar(ciudad, Contenido.FLOR, valor(args, ++i, opcion));
                     case "--azar-papel" -> alAzar(ciudad, Contenido.PAPEL, valor(args, ++i, opcion));
                     case "--azar-obstaculo" ->
@@ -130,20 +139,35 @@ public final class Rinfo {
         ciudad.colocar(que, partes[0], partes[1], cantidad);
     }
 
-    /** {@code N[,AV1,CA1,AV2,CA2]} */
+    /** {@code N[,AV1,CA1,AV2,CA2]}: N unidades en cada esquina de la zona. */
+    private static void enZona(Ciudad ciudad, Contenido que, String argumento) {
+        int[] partes = numeros(argumento, "el relleno de zona se escribe N[,AV1,CA1,AV2,CA2]", 1, 5);
+        int[] zona = zonaDe(ciudad, partes);
+        int cantidad = que == Contenido.OBSTACULO ? 1 : partes[0];
+        int esquinas = ciudad.rellenar(que, cantidad, zona[0], zona[1], zona[2], zona[3]);
+        System.out.println("* " + cantidad + " " + (cantidad == 1 ? que.singular : que.plural)
+                + " en cada una de las " + esquinas + " esquinas de la zona.");
+    }
+
+    /** {@code N[,AV1,CA1,AV2,CA2]}: N unidades repartidas al azar por la zona. */
     private static void alAzar(Ciudad ciudad, Contenido que, String argumento) {
         int[] partes = numeros(argumento, "el reparto al azar se escribe N[,AV1,CA1,AV2,CA2]", 1, 5);
         int cantidad = partes[0];
-        int av1 = partes.length == 5 ? partes[1] : 1;
-        int ca1 = partes.length == 5 ? partes[2] : 1;
-        int av2 = partes.length == 5 ? partes[3] : ciudad.getNumAv();
-        int ca2 = partes.length == 5 ? partes[4] : ciudad.getNumCa();
+        int[] zona = zonaDe(ciudad, partes);
 
-        int colocadas = ciudad.colocarAlAzar(que, cantidad, av1, ca1, av2, ca2, true);
+        int colocadas = ciudad.colocarAlAzar(que, cantidad, zona[0], zona[1], zona[2], zona[3], true);
         if (colocadas < cantidad) {
             System.out.println("* Sólo entraron " + colocadas + " de " + cantidad + " "
                     + que.plural + ": no quedaban esquinas libres.");
         }
+    }
+
+    /** Toma la zona de los argumentos, o toda la ciudad si sólo vino la cantidad. */
+    private static int[] zonaDe(Ciudad ciudad, int[] partes) {
+        if (partes.length == 5) {
+            return new int[] {partes[1], partes[2], partes[3], partes[4]};
+        }
+        return new int[] {1, 1, ciudad.getNumAv(), ciudad.getNumCa()};
     }
 
     /** Parte {@code argumento} por comas y exige uno de los largos permitidos. */

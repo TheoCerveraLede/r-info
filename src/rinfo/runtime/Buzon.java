@@ -1,9 +1,7 @@
 package rinfo.runtime;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -12,43 +10,69 @@ import java.util.Map;
  *
  * <p>{@code EnviarMensaje} deposita en el buzón del destinatario y sigue de
  * largo; {@code RecibirMensaje} bloquea al robot hasta que llegue un mensaje
- * del remitente que espera. Los mensajes de cada remitente se atienden en
- * orden de llegada.
+ * del remitente que espera. Con el comodín {@value #COMODIN} espera un mensaje
+ * de cualquiera y se lleva el más viejo.
+ *
+ * <p>Los mensajes se guardan en una sola lista en orden de llegada, no en una
+ * cola por remitente: es lo que hace que el comodín devuelva efectivamente el
+ * más viejo de todos.
  */
 public final class Buzon {
 
-    private final Map<String, Deque<Object>> porRemitente = new HashMap<>();
+    /** Remitente que acepta un mensaje de cualquier robot. */
+    public static final String COMODIN = "*";
+
+    private record Mensaje(String remitente, Object valor) {}
+
+    private final List<Mensaje> pendientes = new ArrayList<>();
 
     public synchronized void depositar(String remitente, Object valor) {
-        porRemitente.computeIfAbsent(remitente, k -> new ArrayDeque<>()).addLast(valor);
+        pendientes.add(new Mensaje(remitente, valor));
         notifyAll();
     }
 
     /**
-     * Espera un mensaje de {@code remitente} y lo devuelve.
+     * Espera un mensaje y lo devuelve.
      *
+     * @param remitente nombre del robot esperado, o {@code null} o
+     *                  {@value #COMODIN} para aceptar el de cualquiera
      * @throws InterruptedException si se detiene la ejecución mientras espera
      */
     public synchronized Object recibir(String remitente) throws InterruptedException {
-        Deque<Object> cola = porRemitente.computeIfAbsent(remitente, k -> new ArrayDeque<>());
-        while (cola.isEmpty()) {
+        while (true) {
+            int indice = buscar(remitente);
+            if (indice >= 0) {
+                return pendientes.remove(indice).valor();
+            }
             wait();
         }
-        return cola.removeFirst();
     }
 
-    /** Mensajes pendientes, para mostrarlos en el inspector. */
-    public synchronized List<String> pendientes() {
-        List<String> resumen = new ArrayList<>();
-        porRemitente.forEach((remitente, cola) -> {
-            if (!cola.isEmpty()) {
-                resumen.add(remitente + ": " + cola.size());
+    /** Índice del mensaje más viejo que sirve, o -1 si no hay ninguno. */
+    private int buscar(String remitente) {
+        if (remitente == null || remitente.equals(COMODIN)) {
+            return pendientes.isEmpty() ? -1 : 0;
+        }
+        for (int i = 0; i < pendientes.size(); i++) {
+            if (pendientes.get(i).remitente().equals(remitente)) {
+                return i;
             }
-        });
-        return resumen;
+        }
+        return -1;
+    }
+
+    /** Mensajes pendientes por remitente, para mostrarlos en el inspector. */
+    public synchronized List<String> resumen() {
+        Map<String, Integer> porRemitente = new LinkedHashMap<>();
+        for (Mensaje m : pendientes) {
+            porRemitente.merge(m.remitente(), 1, Integer::sum);
+        }
+        List<String> lineas = new ArrayList<>();
+        porRemitente.forEach((remitente, cantidad) -> lineas.add(remitente + ": " + cantidad));
+        return lineas;
     }
 
     public synchronized void limpiar() {
-        porRemitente.clear();
+        pendientes.clear();
     }
 }

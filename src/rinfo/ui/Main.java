@@ -610,6 +610,8 @@ public final class Main extends JFrame {
               Pos(av, ca), Informar('texto', expr, ...)
               Leer(v), Random(v, desde, hasta)
               EnviarMensaje(expr, robot), RecibirMensaje(v, robot)
+                RecibirMensaje(v, *) acepta un mensaje de cualquier emisor.
+                El comodín * no sirve para enviar: no hay difusión.
               BloquearEsquina(av, ca), LiberarEsquina(av, ca)
 
             VARIOS ROBOTS
@@ -620,8 +622,8 @@ public final class Main extends JFrame {
 
             ARMAR LA CIUDAD
               Ciudad -> Colocar... (Ctrl+L) pone flores, papeles y obstáculos
-              en una esquina exacta o repartidos al azar en una zona, sin usar
-              el mouse sobre la grilla.
+              sin usar el mouse: en una esquina exacta, en cada esquina de una
+              zona, o repartidos al azar dentro de una zona.
 
             CONSULTAS
               PosAv, PosCa, HayObstaculo

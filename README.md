@@ -64,12 +64,18 @@ posición y la bolsa de cada robot, y las variables del que esté seleccionado.
 **Ciudad → Colocar…** (`Ctrl+L`) abre un diálogo no modal que se puede dejar
 abierto mientras se arma el escenario:
 
-- **En una esquina**: elegir qué (flor, papel u obstáculo), la cantidad, la
-  avenida y la calle.
-- **Al azar**: una cantidad repartida dentro de un rectángulo. Con «una por
-  esquina» marcado no apila ni pisa esquinas ocupadas, y avisa si no entraron
-  todas.
-- **Vaciar**: deja sin contenido la zona elegida en «Al azar».
+- **En una esquina**: qué (flor, papel u obstáculo), cuántos, avenida y calle.
+- **En una zona**: se define el rectángulo con *desde av/ca* y *hasta av/ca*, y
+  después se elige entre los dos repartos:
+  - **en cada esquina de la zona**: deja la cantidad indicada en todas las
+    esquinas del rectángulo. Es determinístico: 3 papeles en una zona de 12
+    esquinas son 36 papeles.
+  - **repartidos al azar en la zona**: distribuye ese total entre las esquinas
+    del rectángulo. Con «una por esquina» marcado no apila ni pisa esquinas
+    ocupadas, y avisa si no entraron todas.
+
+  Un renglón debajo anticipa cuántas unidades va a poner cada modo, y
+  **Vaciar zona** limpia el mismo rectángulo.
 
 Un obstáculo y el contenido de una esquina se excluyen: poner un obstáculo
 vacía la esquina, y poner flores o papeles saca el obstáculo.
@@ -87,12 +93,19 @@ java -cp out rinfo.Rinfo ejemplos/limpieza.rinfo --azar-papel 5,1,1,1,5
 | `--flor AV,CA[,N]` | deja N flores en esa esquina (N por omisión 1) |
 | `--papel AV,CA[,N]` | deja N papeles en esa esquina |
 | `--obstaculo AV,CA` | pone un obstáculo |
-| `--azar-flor N[,AV1,CA1,AV2,CA2]` | reparte N flores al azar en la zona |
+| `--zona-flor N[,AV1,CA1,AV2,CA2]` | deja N flores en **cada** esquina de la zona |
+| `--zona-papel N[,…]` | ídem con papeles |
+| `--zona-obstaculo N[,…]` | un obstáculo en cada esquina |
+| `--azar-flor N[,…]` | reparte N flores **en total** al azar por la zona |
 | `--azar-papel N[,…]` | ídem con papeles |
 | `--azar-obstaculo N[,…]` | ídem con obstáculos |
 
 Si se omite la zona se usa toda la ciudad. Las opciones se pueden repetir.
 `java -cp out rinfo.Rinfo --ayuda` las lista.
+
+```bash
+java -cp out rinfo.Rinfo ejemplos/limpieza.rinfo --zona-papel 2,1,1,1,5
+```
 
 ## El lenguaje
 
@@ -207,6 +220,21 @@ del robot que lo invoca.
 `Random(v, desde, hasta)`, `EnviarMensaje(expr, robot)`,
 `RecibirMensaje(v, robot)`, `BloquearEsquina(av, ca)`, `LiberarEsquina(av, ca)`.
 
+#### El comodín `*`
+
+`RecibirMensaje(v, *)` acepta un mensaje de **cualquier** emisor y se queda con
+el más viejo de los que estén esperando. Sirve para un robot que atiende a
+varios sin saber de antemano quién le va a hablar primero:
+
+```
+repetir 6
+  RecibirMensaje(v, *)
+  Informar('llego', v)
+```
+
+El comodín es sólo para recibir: `EnviarMensaje` necesita el nombre de un robot
+concreto, no hay difusión a todos.
+
 ### Consultas
 
 `PosAv`, `PosCa`, `HayObstaculo`, `HayFlorEnLaEsquina`, `HayFlorEnLaBolsa`,
@@ -235,6 +263,7 @@ ok:= i > 3 + 1                { se lee ((i > 3) + 1): error de tipos }
 | [`procesos.rinfo`](ejemplos/procesos.rinfo) | procesos con parámetros `E`, `S` y `ES`, `si`/`sino`, `mientras` |
 | [`varios-robots.rinfo`](ejemplos/varios-robots.rinfo) | tres instancias del mismo tipo, una por área |
 | [`mensajes.rinfo`](ejemplos/mensajes.rinfo) | `EnviarMensaje` y `RecibirMensaje` entre dos robots |
+| [`comodin.rinfo`](ejemplos/comodin.rinfo) | `RecibirMensaje(v, *)`: dos emisores, un receptor |
 | [`esquina-compartida.rinfo`](ejemplos/esquina-compartida.rinfo) | `BloquearEsquina` sobre un `AreaC` compartida |
 | [`limpieza.rinfo`](ejemplos/limpieza.rinfo) | junta papeles; se combina con las opciones de colocación |
 

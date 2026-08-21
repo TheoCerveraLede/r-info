@@ -127,10 +127,13 @@ public final class Interprete {
             }
 
             case Sent.RecibirMensaje r -> {
-                if (ctx.ciudad.getRobot(r.origen()) == null) {
+                boolean deCualquiera = Buzon.COMODIN.equals(r.origen());
+                if (!deCualquiera && ctx.ciudad.getRobot(r.origen()) == null) {
                     throw new ErrorEjecucion("RecibirMensaje: no existe el robot '" + r.origen() + "'");
                 }
-                robot.setEstado("esperando mensaje de " + r.origen());
+                robot.setEstado(deCualquiera
+                        ? "esperando un mensaje de cualquiera"
+                        : "esperando mensaje de " + r.origen());
                 Object valor = robot.getBuzon().recibir(r.origen());
                 robot.setEstado("en ejecución");
                 env.escribir(r.variable(), valor);

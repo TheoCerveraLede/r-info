@@ -1,0 +1,39 @@
+programa Comodin
+{ El receptor usa el comodin * para aceptar un mensaje de cualquier emisor.
+  Cada emisor manda 3 mensajes; el receptor los toma en orden de llegada. }
+areas
+  zonaUno: AreaP(1, 1, 3, 5)
+  zonaDos: AreaP(4, 1, 6, 5)
+  zonaTres: AreaP(7, 1, 9, 5)
+robots
+  robot emisor
+  variables
+    i: numero
+  comenzar
+    i:= 1
+    repetir 3
+      EnviarMensaje(PosAv * 100 + i, central)
+      mover
+      i:= i + 1
+  fin
+
+  robot receptor
+  variables
+    v: numero
+  comenzar
+    repetir 6
+      RecibirMensaje(v, *)
+      Informar('llego', v)
+  fin
+variables
+  uno: emisor
+  dos: emisor
+  central: receptor
+comenzar
+  AsignarArea(uno, zonaUno)
+  AsignarArea(dos, zonaDos)
+  AsignarArea(central, zonaTres)
+  Iniciar(uno, 1, 1)
+  Iniciar(dos, 4, 1)
+  Iniciar(central, 7, 1)
+fin

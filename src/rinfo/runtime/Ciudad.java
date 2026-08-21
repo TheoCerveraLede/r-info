@@ -152,6 +152,36 @@ public final class Ciudad {
         return colocadas;
     }
 
+    /**
+     * Deja {@code cantidadPorEsquina} unidades de {@code que} en <b>cada</b>
+     * esquina del rectángulo. A diferencia de
+     * {@link #colocarAlAzar(Contenido, int, int, int, int, int, boolean)}, el
+     * resultado es siempre el mismo.
+     *
+     * @return cuántas esquinas se tocaron
+     */
+    public int rellenar(Contenido que, int cantidadPorEsquina,
+                        int av1, int ca1, int av2, int ca2) {
+        int desdeAv = Math.min(av1, av2);
+        int hastaAv = Math.max(av1, av2);
+        int desdeCa = Math.min(ca1, ca2);
+        int hastaCa = Math.max(ca1, ca2);
+        if (!dentro(desdeAv, desdeCa) || !dentro(hastaAv, hastaCa)) {
+            throw new IllegalArgumentException("el rango se sale de la ciudad");
+        }
+        if (cantidadPorEsquina < 1) {
+            return 0;
+        }
+        int esquinasTocadas = 0;
+        for (int av = desdeAv; av <= hastaAv; av++) {
+            for (int ca = desdeCa; ca <= hastaCa; ca++) {
+                colocar(que, av, ca, cantidadPorEsquina);
+                esquinasTocadas++;
+            }
+        }
+        return esquinasTocadas;
+    }
+
     public boolean estaVacia(int av, int ca) {
         Esquina esquina = esquinas[av][ca];
         return esquina.getFlores() == 0 && esquina.getPapeles() == 0 && !esquina.tieneObstaculo();

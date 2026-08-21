@@ -130,6 +130,14 @@ particulares:
 - La concurrencia se coordina con dos monitores: uno de mensajes
   (`EnviarMensaje` / `RecibirMensaje`) y uno de esquinas (`BloquearEsquina` /
   `LiberarEsquina`).
+- En `RecibirMensaje` el remitente `*` es un comodín: `MonitorMensajes` compara
+  el identificador con `"*"` y, si coincide, llama a `getValorByComodin()`, que
+  se lleva el primer elemento de la lista `datos` —la más vieja de todas, sin
+  importar quién la mandó— y si está vacía espera en la condición
+  `esperaCualquiera`. El parser lo permite porque para el remitente no exige
+  `IDENTIFER`: toma la escritura del token que venga, y `*` es `MULT`. Del lado
+  de `EnviarMensaje` no hay comodín: el destino se resuelve con
+  `Ciudad.getRobotByNombre`.
 - Los procesos ven **solamente** sus parámetros formales y sus locales: no
   acceden a las variables del robot que los invoca.
 
@@ -146,7 +154,7 @@ particulares:
 | `form.Ciudad`, `form.Bolsa`, `form.Area*` | `rinfo.runtime.Ciudad`, `Esquina`, `Area` + `TipoArea` |
 | `form.Robot`, `form.Direction` | `rinfo.runtime.Robot`, `Direccion` |
 | `form.Ejecucion`, `form.EjecucionRobot` | `rinfo.runtime.Simulacion`, `Interprete` |
-| `form.MonitorMensajes` | `rinfo.runtime.Buzon` |
+| `form.MonitorMensajes`, `form.Dato` | `rinfo.runtime.Buzon` |
 | `form.MonitorEsquinas` | `rinfo.runtime.MonitorEsquinas` |
 | `form.MonitorActualizarVentana` | `rinfo.runtime.ControlEjecucion` |
 | `form.Main`, `CodePanel`, `CiudadView`, `TablaRobot` | `rinfo.ui.Main`, `EditorRInfo`, `VistaCiudad`, `PanelRobots` |
