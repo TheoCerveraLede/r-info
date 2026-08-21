@@ -34,6 +34,8 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.UIManager;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import rinfo.ast.Programa;
 import rinfo.lang.ErrorCompilacion;
@@ -64,9 +66,13 @@ public final class Main extends JFrame {
     private final Timer refresco = new Timer(40, e -> refrescarSiHaceFalta());
 
     private Simulacion simulacion;
+    private Programa programaCompilado;
+    /** Pasa a false apenas se toca el editor: obliga a recompilar antes de correr. */
+    private boolean fuenteVigente;
     private Path archivoActual;
     private DialogoColocar dialogoColocar;
 
+    private final JSlider deslizadorVelocidad = new JSlider(0, 400, 120);
     private final JButton botonEjecutar = new JButton("Ejecutar");
     private final JButton botonPaso = new JButton("Paso");
     private final JButton botonPausa = new JButton("Pausar");
@@ -80,6 +86,22 @@ public final class Main extends JFrame {
 
         construirInterfaz();
         setJMenuBar(construirMenu());
+        editor.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                fuenteVigente = false;
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                fuenteVigente = false;
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                // sólo cambian los atributos del coloreado
+            }
+        });
         editor.setText(PLANTILLA);
         editor.colorear();
         editor.setCaretPosition(0);
@@ -150,16 +172,15 @@ public final class Main extends JFrame {
         barra.addSeparator();
 
         barra.add(new JLabel("Velocidad "));
-        JSlider velocidad = new JSlider(0, 400, 120);
-        velocidad.setInverted(true);
-        velocidad.setPreferredSize(new Dimension(140, 24));
-        velocidad.setToolTipText("Demora entre acciones");
-        velocidad.addChangeListener(e -> {
+        deslizadorVelocidad.setInverted(true);
+        deslizadorVelocidad.setPreferredSize(new Dimension(140, 24));
+        deslizadorVelocidad.setToolTipText("Demora entre acciones");
+        deslizadorVelocidad.addChangeListener(e -> {
             if (simulacion != null) {
-                simulacion.getControl().setDemoraMs(velocidad.getValue());
+                simulacion.getControl().setDemoraMs(deslizadorVelocidad.getValue());
             }
         });
-        barra.add(velocidad);
+        barra.add(deslizadorVelocidad);
         barra.addSeparator();
 
         barra.add(new JLabel("Colocar "));
@@ -253,6 +274,7 @@ public final class Main extends JFrame {
         editor.colorear();
         archivoActual = null;
         setTitle("r-Info");
+        olvidarCompilacion();
         ciudad.limpiarTodo();
         vistaCiudad.repaint();
         panelRobots.refrescar();
@@ -281,6 +303,7 @@ public final class Main extends JFrame {
             editor.setCaretPosition(0);
             archivoActual = ruta;
             setTitle("r-Info — " + ruta.getFileName());
+            olvidarCompilacion();
             traza("Abierto " + ruta);
         } catch (IOException e) {
             error("No se pudo abrir el archivo: " + e.getMessage());
@@ -318,13 +341,38 @@ public final class Main extends JFrame {
     // Compilar y ejecutar
     // ------------------------------------------------------------------
 
-    private Programa compilar() {
+    /**
+     * Compila y deja la corrida armada: los robots declarados ya existen en la
+     * ciudad, de modo que se les puede configurar la bolsa antes de ejecutar.
+     */
+    private boolean compilar() {
         try {
             Programa programa = Parser.compilar(editor.getText().replace("\r\n", "\n"));
-            traza("Compilación correcta: programa " + programa.nombre() + ".");
+            programaCompilado = programa;
+
+            simulacion = new Simulacion(programa, ciudad, new ConsolaVentana(),
+                    () -> vistaSucia.set(true));
+            simulacion.setAlTerminar(() -> SwingUtilities.invokeLater(() -> {
+                actualizarBotones(false);
+                estado.setText("Ejecución terminada");
+                vistaSucia.set(true);
+            }));
+            simulacion.preparar();
+            panelRobots.setSimulacion(simulacion);
+            fuenteVigente = true;
+            vistaSucia.set(true);
+
+            int robots = ciudad.getRobots().size();
+            traza("Compilación correcta: programa " + programa.nombre() + ", "
+                    + robots + (robots == 1 ? " robot listo." : " robots listos."));
+            if (robots > 0) {
+                traza("Podés editar las flores y los papeles de cada bolsa en el panel de la "
+                        + "derecha antes de ejecutar.");
+            }
             estado.setText("Compilado sin errores");
-            return programa;
+            return true;
         } catch (ErrorCompilacion e) {
+            olvidarCompilacion();
             traza("Error de compilación — " + e.getMessage());
             estado.setText("Error de compilación");
             if (e.getFila() > 0) {
@@ -332,8 +380,24 @@ public final class Main extends JFrame {
             }
             JOptionPane.showMessageDialog(this, e.getMessage(),
                     "Error de compilación", JOptionPane.ERROR_MESSAGE);
-            return null;
+            return false;
         }
+    }
+
+    /**
+     * Deja el programa listo para correr, recompilando sólo si el fuente cambió.
+     * Recompilar rehace los robots, así que las bolsas configuradas a mano
+     * vuelven a cero.
+     */
+    private boolean asegurarCompilado() {
+        if (fuenteVigente && simulacion != null) {
+            return true;
+        }
+        if (programaCompilado != null) {
+            traza("El fuente cambió desde la última compilación: se recompila y las bolsas "
+                    + "vuelven a su valor inicial.");
+        }
+        return compilar();
     }
 
     private void ejecutar() {
@@ -342,11 +406,10 @@ public final class Main extends JFrame {
             actualizarBotones(true);
             return;
         }
-        Programa programa = compilar();
-        if (programa == null) {
+        if (!asegurarCompilado()) {
             return;
         }
-        arrancar(programa, false);
+        arrancar(false);
     }
 
     private void paso() {
@@ -354,34 +417,22 @@ public final class Main extends JFrame {
             simulacion.getControl().paso();
             return;
         }
-        Programa programa = compilar();
-        if (programa == null) {
+        if (!asegurarCompilado()) {
             return;
         }
-        arrancar(programa, true);
+        arrancar(true);
         simulacion.getControl().paso();
     }
 
-    private void arrancar(Programa programa, boolean pasoAPaso) {
-        consola.setText("");
-        ciudad.limpiarEjecucion();
-
-        simulacion = new Simulacion(programa, ciudad, new ConsolaVentana(),
-                () -> vistaSucia.set(true));
+    private void arrancar(boolean pasoAPaso) {
+        simulacion.getControl().setDemoraMs(deslizadorVelocidad.getValue());
         if (pasoAPaso) {
             simulacion.getControl().pausar();
         }
-        simulacion.setAlTerminar(() -> SwingUtilities.invokeLater(() -> {
-            actualizarBotones(false);
-            estado.setText("Ejecución terminada");
-            vistaSucia.set(true);
-        }));
-
-        panelRobots.setSimulacion(simulacion);
         vistaCiudad.setEdicionHabilitada(false);
         actualizarBotones(true);
         estado.setText("Ejecutando…");
-        traza("Ejecutando " + programa.nombre() + "…");
+        traza("Ejecutando " + programaCompilado.nombre() + "…");
         simulacion.iniciar();
     }
 
@@ -407,6 +458,14 @@ public final class Main extends JFrame {
             traza("Ejecución detenida por el usuario.");
         }
         actualizarBotones(false);
+    }
+
+    /** Descarta la corrida armada: hay que volver a compilar. */
+    private void olvidarCompilacion() {
+        simulacion = null;
+        programaCompilado = null;
+        fuenteVigente = false;
+        panelRobots.setSimulacion(null);
     }
 
     private boolean estaCorriendo() {
@@ -623,7 +682,14 @@ public final class Main extends JFrame {
             ARMAR LA CIUDAD
               Ciudad -> Colocar... (Ctrl+L) pone flores, papeles y obstáculos
               sin usar el mouse: en una esquina exacta, en cada esquina de una
-              zona, o repartidos al azar dentro de una zona.
+              zona, o repartidos al azar dentro de una zona. En la avenida y la
+              calle se puede escribir * para que esa coordenada salga al azar.
+
+            BOLSAS DE LOS ROBOTS
+              Los robots existen apenas compilás (F9). Con el programa detenido,
+              las columnas Flores y Papeles del panel derecho son editables: ahí
+              se define con cuánto arranca cada robot. El valor se conserva entre
+              corridas; recompilar lo vuelve a cero.
 
             CONSULTAS
               PosAv, PosCa, HayObstaculo

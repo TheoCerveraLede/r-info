@@ -59,12 +59,28 @@ derecho borra la esquina y la herramienta se elige en la barra superior. Los
 sliders regulan la velocidad y el zoom. El panel de la derecha muestra la
 posición y la bolsa de cada robot, y las variables del que esté seleccionado.
 
+## Las bolsas de los robots
+
+Los robots existen apenas **compilás** (`F9`), antes de ejecutar, con la bolsa
+vacía. En el panel de la derecha las columnas **Flores** y **Papeles** son
+editables mientras el programa está detenido: ahí se define con cuánto arranca
+cada robot.
+
+Ese valor sobrevive a las corridas. Al ejecutar, cada robot vuelve a su bolsa
+configurada, así que se puede correr el mismo escenario varias veces sin
+recompilar. Si en cambio tocás el fuente, la próxima ejecución recompila y las
+bolsas vuelven a cero, avisándolo en la consola.
+
 ## Cómo se arma la ciudad sin el mouse
 
 **Ciudad → Colocar…** (`Ctrl+L`) abre un diálogo no modal que se puede dejar
 abierto mientras se arma el escenario:
 
 - **En una esquina**: qué (flor, papel u obstáculo), cuántos, avenida y calle.
+  En la avenida o en la calle se puede escribir `*` para que esa coordenada
+  salga al azar: `avenida 3, calle *` deja la cantidad pedida en calles
+  sorteadas de la avenida 3, y `* / *` la reparte por toda la ciudad. Con
+  comodín cada unidad cae en una esquina distinta y no pisa las ocupadas.
 - **En una zona**: se define el rectángulo con *desde av/ca* y *hasta av/ca*, y
   después se elige entre los dos repartos:
   - **en cada esquina de la zona**: deja la cantidad indicada en todas las
@@ -93,6 +109,12 @@ java -cp out rinfo.Rinfo ejemplos/limpieza.rinfo --azar-papel 5,1,1,1,5
 | `--flor AV,CA[,N]` | deja N flores en esa esquina (N por omisión 1) |
 | `--papel AV,CA[,N]` | deja N papeles en esa esquina |
 | `--obstaculo AV,CA` | pone un obstáculo |
+
+En esas tres, `AV` y `CA` aceptan `*` para sortear esa coordenada:
+`--papel 3,*,5` deja 5 papeles en 5 calles al azar de la avenida 3 y
+`--papel '*,*,20'` los reparte por toda la ciudad. En bash conviene entrecomillar
+el `*` para que no lo expanda el shell.
+
 | `--zona-flor N[,AV1,CA1,AV2,CA2]` | deja N flores en **cada** esquina de la zona |
 | `--zona-papel N[,…]` | ídem con papeles |
 | `--zona-obstaculo N[,…]` | un obstáculo en cada esquina |

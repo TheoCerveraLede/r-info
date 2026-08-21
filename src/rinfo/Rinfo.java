@@ -38,6 +38,10 @@ public final class Rinfo {
               --papel AV,CA[,N]         deja N papeles en esa esquina
               --obstaculo AV,CA         pone un obstáculo en esa esquina
 
+            En estas tres, AV y CA aceptan * para que esa coordenada salga al
+            azar: --papel 3,*,5 deja 5 papeles en 5 calles al azar de la
+            avenida 3, y --papel *,*,20 los reparte por toda la ciudad.
+
               --zona-flor N[,ZONA]      deja N flores en CADA esquina de la zona
               --zona-papel N[,ZONA]     deja N papeles en cada esquina
               --zona-obstaculo N[,ZONA] pone un obstáculo en cada esquina (N se ignora)
@@ -132,11 +136,50 @@ public final class Rinfo {
         return args[indice];
     }
 
-    /** {@code AV,CA[,N]} */
+    /** En una coordenada, pide que la posición se sortee. */
+    private static final String COMODIN = "*";
+
+    /** Valor interno de una coordenada escrita como {@value #COMODIN}. */
+    private static final int AL_AZAR = -1;
+
+    /** {@code AV,CA[,N]}, donde AV y CA pueden ser {@value #COMODIN}. */
     private static void colocar(Ciudad ciudad, Contenido que, String argumento) {
-        int[] partes = numeros(argumento, que + " se escribe AV,CA[,N]", 2, 3);
-        int cantidad = partes.length == 3 ? partes[2] : 1;
-        ciudad.colocar(que, partes[0], partes[1], cantidad);
+        String formato = que + " se escribe AV,CA[,N]; AV y CA pueden ser "
+                + COMODIN + " para que salgan al azar";
+        String[] partes = argumento.split(",");
+        if (partes.length != 2 && partes.length != 3) {
+            throw new IllegalArgumentException(formato);
+        }
+        int av = coordenada(partes[0], formato);
+        int ca = coordenada(partes[1], formato);
+        int cantidad = que == Contenido.OBSTACULO ? 1
+                : (partes.length == 3 ? numero(partes[2], formato) : 1);
+
+        if (av != AL_AZAR && ca != AL_AZAR) {
+            ciudad.colocar(que, av, ca, cantidad);
+            return;
+        }
+        // El comodín fija la coordenada conocida y sortea la otra.
+        int av1 = av == AL_AZAR ? 1 : av;
+        int av2 = av == AL_AZAR ? ciudad.getNumAv() : av;
+        int ca1 = ca == AL_AZAR ? 1 : ca;
+        int ca2 = ca == AL_AZAR ? ciudad.getNumCa() : ca;
+        int colocadas = ciudad.colocarAlAzar(que, cantidad, av1, ca1, av2, ca2, true);
+        System.out.println("* " + colocadas + " " + (colocadas == 1 ? que.singular : que.plural)
+                + " al azar" + (colocadas < cantidad
+                        ? " (se pedían " + cantidad + ", no quedaban esquinas libres)." : "."));
+    }
+
+    private static int coordenada(String texto, String formato) {
+        return texto.trim().equals(COMODIN) ? AL_AZAR : numero(texto, formato);
+    }
+
+    private static int numero(String texto, String formato) {
+        try {
+            return Integer.parseInt(texto.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(formato);
+        }
     }
 
     /** {@code N[,AV1,CA1,AV2,CA2]}: N unidades en cada esquina de la zona. */

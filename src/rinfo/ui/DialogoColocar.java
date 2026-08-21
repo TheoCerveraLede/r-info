@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -22,29 +23,40 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JSpinner;
+import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import rinfo.runtime.Ciudad;
 import rinfo.runtime.Contenido;
 
 /**
  * Diálogo para poblar la ciudad sin usar el mouse sobre la grilla.
  *
- * <p>Tiene dos formas de trabajo: una esquina puntual, y una zona rectangular
- * en la que el contenido se puede poner en todas las esquinas o repartir al
- * azar. Es no modal a propósito: se deja abierto mientras se arma el escenario
- * y cada acción refresca la vista.
+ * <p>Dos formas de trabajo: una esquina, donde la avenida y la calle aceptan
+ * {@value #COMODIN} para que esa coordenada salga al azar, y una zona
+ * rectangular en la que el contenido se puede poner en todas las esquinas o
+ * repartir al azar. Es no modal a propósito: se deja abierto mientras se arma
+ * el escenario y cada acción refresca la vista.
  */
 public final class DialogoColocar extends JDialog {
+
+    /** En una coordenada, pide que la posición se sortee. */
+    public static final String COMODIN = "*";
+
+    /** Valor interno de una coordenada escrita como {@value #COMODIN}. */
+    private static final int AL_AZAR = -1;
 
     private final Ciudad ciudad;
     private final Consumer<String> informar;
     private final Runnable alCambiar;
 
-    // Esquina puntual
+    // Esquina
     private final JComboBox<Contenido> queEsquina = new JComboBox<>(Contenido.values());
-    private final JSpinner cantidadEsquina = new JSpinner(new SpinnerNumberModel(1, 1, 999, 1));
-    private final JSpinner avenida = new JSpinner();
-    private final JSpinner calle = new JSpinner();
+    private final JSpinner cantidadEsquina = new JSpinner(new SpinnerNumberModel(1, 1, 9999, 1));
+    private final JTextField avenida = new JTextField("1", 4);
+    private final JTextField calle = new JTextField("1", 4);
+    private final JLabel resumenEsquina = new JLabel(" ");
 
     // Zona
     private final JSpinner desdeAv = new JSpinner();
@@ -87,13 +99,12 @@ public final class DialogoColocar extends JDialog {
     public void prepararParaMostrar() {
         int maxAv = ciudad.getNumAv();
         int maxCa = ciudad.getNumCa();
-        rango(avenida, maxAv, valorActual(avenida, maxAv, 1));
-        rango(calle, maxCa, valorActual(calle, maxCa, 1));
         rango(desdeAv, maxAv, valorActual(desdeAv, maxAv, 1));
         rango(desdeCa, maxCa, valorActual(desdeCa, maxCa, 1));
         rango(hastaAv, maxAv, valorActual(hastaAv, maxAv, maxAv));
         rango(hastaCa, maxCa, valorActual(hastaCa, maxCa, maxCa));
-        actualizarResumen();
+        actualizarResumenEsquina();
+        actualizarResumenZona();
     }
 
     private static void rango(JSpinner spinner, int maximo, int valor) {
@@ -108,6 +119,29 @@ public final class DialogoColocar extends JDialog {
 
     private static int entero(JSpinner spinner) {
         return (Integer) spinner.getValue();
+    }
+
+    /**
+     * Lee una coordenada escrita a mano.
+     *
+     * @return el número, o {@link #AL_AZAR} si el campo tiene el comodín
+     * @throws IllegalArgumentException si el texto no es ninguna de las dos cosas
+     */
+    private static int coordenada(JTextField campo, int maximo, String nombre) {
+        String texto = campo.getText().trim();
+        if (texto.equals(COMODIN)) {
+            return AL_AZAR;
+        }
+        try {
+            int valor = Integer.parseInt(texto);
+            if (valor < 1 || valor > maximo) {
+                throw new NumberFormatException();
+            }
+            return valor;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("La " + nombre + " tiene que ser un número entre 1 y "
+                    + maximo + ", o " + COMODIN + " para que salga al azar.");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -143,9 +177,25 @@ public final class DialogoColocar extends JDialog {
         c.gridheight = 2;
         panel.add(colocar, c);
 
+        c.gridx = 0;
+        c.gridy = 2;
+        c.gridheight = 1;
+        c.gridwidth = 5;
+        panel.add(enChico("Escribí " + COMODIN + " en la avenida o en la calle para que esa "
+                + "coordenada salga al azar."), c);
+        c.gridy = 3;
+        panel.add(resumenEsquina, c);
+
         cantidadEsquina.setPreferredSize(new Dimension(64, cantidadEsquina.getPreferredSize().height));
-        queEsquina.addActionListener(e -> cantidadEsquina.setEnabled(
-                queEsquina.getSelectedItem() != Contenido.OBSTACULO));
+        String pista = "Un número, o " + COMODIN + " para que salga al azar";
+        avenida.setToolTipText(pista);
+        calle.setToolTipText(pista);
+
+        queEsquina.addActionListener(e -> actualizarResumenEsquina());
+        cantidadEsquina.addChangeListener(e -> actualizarResumenEsquina());
+        alEscribir(avenida, this::actualizarResumenEsquina);
+        alEscribir(calle, this::actualizarResumenEsquina);
+        actualizarResumenEsquina();
         return panel;
     }
 
@@ -206,14 +256,14 @@ public final class DialogoColocar extends JDialog {
         panel.add(botones, c);
 
         cantidadZona.setPreferredSize(new Dimension(64, cantidadZona.getPreferredSize().height));
-        enCadaEsquina.addActionListener(e -> actualizarResumen());
-        alAzar.addActionListener(e -> actualizarResumen());
-        queZona.addActionListener(e -> actualizarResumen());
-        cantidadZona.addChangeListener(e -> actualizarResumen());
+        enCadaEsquina.addActionListener(e -> actualizarResumenZona());
+        alAzar.addActionListener(e -> actualizarResumenZona());
+        queZona.addActionListener(e -> actualizarResumenZona());
+        cantidadZona.addChangeListener(e -> actualizarResumenZona());
         for (JSpinner s : new JSpinner[] {desdeAv, desdeCa, hastaAv, hastaCa}) {
-            s.addChangeListener(e -> actualizarResumen());
+            s.addChangeListener(e -> actualizarResumenZona());
         }
-        actualizarResumen();
+        actualizarResumenZona();
         return panel;
     }
 
@@ -233,19 +283,83 @@ public final class DialogoColocar extends JDialog {
         return c;
     }
 
-    /** Anticipa cuántas unidades va a poner el modo elegido. */
-    private void actualizarResumen() {
+    private static JLabel enChico(String texto) {
+        JLabel etiqueta = new JLabel(texto);
+        etiqueta.setFont(etiqueta.getFont().deriveFont(Font.PLAIN, 11f));
+        etiqueta.setForeground(new java.awt.Color(0x60686A));
+        return etiqueta;
+    }
+
+    private static void alEscribir(JTextField campo, Runnable accion) {
+        campo.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                accion.run();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                accion.run();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                accion.run();
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // Resúmenes: anticipan lo que va a hacer cada botón
+    // ------------------------------------------------------------------
+
+    private void actualizarResumenEsquina() {
+        Contenido que = (Contenido) queEsquina.getSelectedItem();
+        if (que == null) {
+            return;
+        }
+        cantidadEsquina.setEnabled(que != Contenido.OBSTACULO);
+        int cantidad = que == Contenido.OBSTACULO ? 1 : entero(cantidadEsquina);
+        String plural = cantidad == 1 ? que.singular : que.plural;
+
+        int av;
+        int ca;
+        try {
+            av = coordenada(avenida, ciudad.getNumAv(), "avenida");
+            ca = coordenada(calle, ciudad.getNumCa(), "calle");
+        } catch (IllegalArgumentException e) {
+            resumenEsquina.setText(" ");
+            return;
+        }
+        if (av != AL_AZAR && ca != AL_AZAR) {
+            resumenEsquina.setText(cantidad + " " + plural + " en (av " + av + ", ca " + ca + ").");
+        } else {
+            resumenEsquina.setText(cantidad + " " + plural + " en "
+                    + (cantidad == 1 ? "una esquina" : cantidad + " esquinas distintas")
+                    + " al azar " + dondeAlAzar(av, ca) + ".");
+        }
+    }
+
+    private String dondeAlAzar(int av, int ca) {
+        if (av == AL_AZAR && ca == AL_AZAR) {
+            return "de toda la ciudad";
+        }
+        return av == AL_AZAR ? "de la calle " + ca : "de la avenida " + av;
+    }
+
+    private void actualizarResumenZona() {
         sinPisar.setEnabled(alAzar.isSelected());
         Contenido que = (Contenido) queZona.getSelectedItem();
         if (que == null) {
             return;
         }
-        int cantidad = entero(cantidadZona);
+        cantidadZona.setEnabled(que != Contenido.OBSTACULO);
+        int cantidad = que == Contenido.OBSTACULO ? 1 : entero(cantidadZona);
         int esquinas = (Math.abs(entero(hastaAv) - entero(desdeAv)) + 1)
                 * (Math.abs(entero(hastaCa) - entero(desdeCa)) + 1);
 
         if (enCadaEsquina.isSelected()) {
-            int total = (que == Contenido.OBSTACULO ? 1 : cantidad) * esquinas;
+            int total = cantidad * esquinas;
             resumenZona.setText("La zona tiene " + esquinas + " esquinas: van a quedar "
                     + total + " " + (total == 1 ? que.singular : que.plural) + " en total.");
         } else {
@@ -262,16 +376,35 @@ public final class DialogoColocar extends JDialog {
     private void colocarEnEsquina() {
         Contenido que = (Contenido) queEsquina.getSelectedItem();
         int cantidad = que == Contenido.OBSTACULO ? 1 : entero(cantidadEsquina);
-        int av = entero(avenida);
-        int ca = entero(calle);
+        int av;
+        int ca;
         try {
-            ciudad.colocar(que, av, ca, cantidad);
+            av = coordenada(avenida, ciudad.getNumAv(), "avenida");
+            ca = coordenada(calle, ciudad.getNumCa(), "calle");
         } catch (IllegalArgumentException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(), "Colocar", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        informar.accept(cantidad + " " + (cantidad == 1 ? que.singular : que.plural)
-                + " en (av " + av + ", ca " + ca + ").");
+
+        if (av != AL_AZAR && ca != AL_AZAR) {
+            ciudad.colocar(que, av, ca, cantidad);
+            informar.accept(cantidad + " " + (cantidad == 1 ? que.singular : que.plural)
+                    + " en (av " + av + ", ca " + ca + ").");
+        } else {
+            // El comodín fija la coordenada conocida y sortea la otra.
+            int av1 = av == AL_AZAR ? 1 : av;
+            int av2 = av == AL_AZAR ? ciudad.getNumAv() : av;
+            int ca1 = ca == AL_AZAR ? 1 : ca;
+            int ca2 = ca == AL_AZAR ? ciudad.getNumCa() : ca;
+            int colocadas = ciudad.colocarAlAzar(que, cantidad, av1, ca1, av2, ca2, true);
+
+            String mensaje = colocadas + " " + (colocadas == 1 ? que.singular : que.plural)
+                    + " al azar " + dondeAlAzar(av, ca) + ".";
+            if (colocadas < cantidad) {
+                mensaje += " No entraron " + cantidad + ": no quedaban esquinas libres.";
+            }
+            informar.accept(mensaje);
+        }
         alCambiar.run();
     }
 
@@ -290,13 +423,12 @@ public final class DialogoColocar extends JDialog {
                 informar.accept(cantidad + " " + (cantidad == 1 ? que.singular : que.plural)
                         + " en cada una de las " + esquinas + " esquinas entre " + zona + ".");
             } else {
-                int pedidas = entero(cantidadZona);
-                int colocadas = ciudad.colocarAlAzar(que, pedidas, av1, ca1, av2, ca2,
+                int colocadas = ciudad.colocarAlAzar(que, cantidad, av1, ca1, av2, ca2,
                         sinPisar.isSelected());
                 String mensaje = colocadas + " " + (colocadas == 1 ? que.singular : que.plural)
                         + " al azar entre " + zona + ".";
-                if (colocadas < pedidas) {
-                    mensaje += " No entraron las " + pedidas
+                if (colocadas < cantidad) {
+                    mensaje += " No entraron las " + cantidad
                             + " pedidas: no quedaban esquinas libres.";
                 }
                 informar.accept(mensaje);

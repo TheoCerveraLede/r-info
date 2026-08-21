@@ -33,6 +33,10 @@ public final class Robot {
     private int floresEnBolsa;
     private int papelesEnBolsa;
 
+    /** Contenido con el que arranca la bolsa; se puede editar antes de correr. */
+    private int floresIniciales;
+    private int papelesIniciales;
+
     private final List<Area> areas = new ArrayList<>();
     private final Set<Long> esquinasPermitidas = new HashSet<>();
 
@@ -123,6 +127,51 @@ public final class Robot {
 
     public synchronized boolean hayPapelEnLaBolsa() {
         return papelesEnBolsa > 0;
+    }
+
+    public synchronized int getFloresIniciales() {
+        return floresIniciales;
+    }
+
+    public synchronized int getPapelesIniciales() {
+        return papelesIniciales;
+    }
+
+    /**
+     * Cambia con cuántas flores arranca el robot. Mientras no se haya iniciado
+     * la bolsa acompaña el cambio, así se ve enseguida en el panel.
+     */
+    public synchronized void setFloresIniciales(int flores) {
+        floresIniciales = Math.max(0, flores);
+        if (!iniciado) {
+            floresEnBolsa = floresIniciales;
+        }
+    }
+
+    public synchronized void setPapelesIniciales(int papeles) {
+        papelesIniciales = Math.max(0, papeles);
+        if (!iniciado) {
+            papelesEnBolsa = papelesIniciales;
+        }
+    }
+
+    /**
+     * Deja al robot como antes de arrancar, conservando el contenido inicial
+     * de la bolsa que se haya configurado. Permite volver a correr el mismo
+     * programa sin recompilar.
+     */
+    public synchronized void reset() {
+        areas.clear();
+        esquinasPermitidas.clear();
+        ruta.clear();
+        buzon.limpiar();
+        av = 0;
+        ca = 0;
+        direccion = Direccion.NORTE;
+        floresEnBolsa = floresIniciales;
+        papelesEnBolsa = papelesIniciales;
+        iniciado = false;
+        estado = "listo";
     }
 
     // --- Áreas -----------------------------------------------------------

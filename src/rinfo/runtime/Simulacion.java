@@ -33,6 +33,7 @@ public final class Simulacion {
     private Thread hiloPrincipal;
     private volatile boolean huboError;
     private Runnable alTerminar;
+    private boolean preparada;
 
     public Simulacion(Programa programa, Ciudad ciudad, Consola consola, Runnable alActualizar) {
         this.programa = programa;
@@ -57,6 +58,24 @@ public final class Simulacion {
         return hiloPrincipal != null && hiloPrincipal.isAlive();
     }
 
+    /**
+     * Crea los robots declarados y registra las áreas, sin ejecutar nada.
+     *
+     * <p>Se llama apenas compila, para que los robots existan antes de correr
+     * y se les pueda configurar el contenido inicial de la bolsa.
+     */
+    public void preparar() {
+        ciudad.limpiarEjecucion();
+        ciudad.setAreas(programa.areas());
+        for (DeclVar v : programa.variables()) {
+            if (v.tipo() == Tipo.ROBOT) {
+                ciudad.agregarRobot(v.nombre(), v.tipoRobot()).setEstado("listo");
+            }
+        }
+        preparada = true;
+        contexto.notificarCambio();
+    }
+
     /** Arranca la corrida en segundo plano. */
     public void iniciar() {
         hiloPrincipal = new Thread(this::correr, "rinfo-programa");
@@ -78,7 +97,24 @@ public final class Simulacion {
 
     private void correr() {
         try {
-            prepararCiudad();
+            // Estado de una corrida anterior: la misma Simulacion se reutiliza
+            // mientras el fuente no cambie, así se puede volver a ejecutar.
+            hilos.clear();
+            synchronized (this) {
+                interpretes.clear();
+            }
+            huboError = false;
+            control.reiniciar();
+
+            if (!preparada) {
+                preparar();
+            }
+            // Deja las bolsas en su valor configurado y borra áreas y recorrido
+            // de una corrida anterior, para poder volver a ejecutar sin recompilar.
+            for (Robot robot : ciudad.getRobots()) {
+                robot.reset();
+            }
+            contexto.notificarCambio();
             ejecutarCuerpoPrincipal();
             for (Thread t : hilos) {
                 t.join();
@@ -97,17 +133,6 @@ public final class Simulacion {
                 alTerminar.run();
             }
         }
-    }
-
-    private void prepararCiudad() {
-        ciudad.limpiarEjecucion();
-        ciudad.setAreas(programa.areas());
-        for (DeclVar v : programa.variables()) {
-            if (v.tipo() == Tipo.ROBOT) {
-                ciudad.agregarRobot(v.nombre(), v.tipoRobot());
-            }
-        }
-        contexto.notificarCambio();
     }
 
     private void ejecutarCuerpoPrincipal() throws ErrorEjecucion {

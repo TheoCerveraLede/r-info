@@ -123,6 +123,11 @@ particulares:
   robot tiene permitido pisar. `mover` y `Pos` fallan si el destino no está en
   esa lista, si se sale de la ciudad o si hay un obstáculo.
 - **Un robot sin área asignada no puede iniciarse.**
+- Los robots se crean al **compilar**, no al ejecutar: `parseVariables` llama a
+  `Ciudad.addRobot` por cada variable de tipo robot. `form.Robot` guarda
+  `floresEnBolsaDeConfiguracion` y `papelesEnBolsaDeConfiguracion`, y `reset()`
+  restaura la bolsa desde ahí, que es lo que permite configurar el contenido
+  inicial entre la compilación y la corrida.
 - Después de cada movimiento se comprueba que ningún otro robot ocupe la misma
   esquina; si lo hay, es un choque y aborta la corrida.
 - Cada robot corre en su propio hilo (`form.EjecucionRobot`); `Iniciar` clona

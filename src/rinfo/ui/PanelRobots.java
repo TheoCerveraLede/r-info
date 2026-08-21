@@ -5,6 +5,7 @@ import java.awt.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -34,7 +35,9 @@ public final class PanelRobots extends JPanel {
 
         tablaRobots.setRowHeight(22);
         tablaRobots.setFillsViewportHeight(true);
+        tablaRobots.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
         tablaRobots.getSelectionModel().addListSelectionListener(e -> refrescarVariables());
+        modeloRobots.edicionHabilitada = () -> simulacion != null && !simulacion.estaCorriendo();
 
         DefaultTableCellRenderer color = new DefaultTableCellRenderer() {
             @Override
@@ -58,6 +61,12 @@ public final class PanelRobots extends JPanel {
         JPanel arriba = new JPanel(new BorderLayout());
         arriba.add(titulo("Robots"), BorderLayout.NORTH);
         arriba.add(new JScrollPane(tablaRobots), BorderLayout.CENTER);
+        JLabel pista = new JLabel("Con el programa compilado y detenido se pueden editar "
+                + "«Flores» y «Papeles»: son las bolsas con las que arranca cada robot.");
+        pista.setBorder(BorderFactory.createEmptyBorder(2, 8, 6, 8));
+        pista.setFont(pista.getFont().deriveFont(java.awt.Font.PLAIN, 11f));
+        pista.setForeground(new java.awt.Color(0x60686A));
+        arriba.add(pista, BorderLayout.SOUTH);
 
         JPanel abajo = new JPanel(new BorderLayout());
         abajo.add(titulo("Variables del robot seleccionado"), BorderLayout.NORTH);
@@ -83,6 +92,9 @@ public final class PanelRobots extends JPanel {
 
     /** Vuelve a leer el estado de la ciudad. Se llama desde el hilo de Swing. */
     public void refrescar() {
+        if (tablaRobots.isEditing()) {
+            return; // no interrumpir mientras el usuario tipea una cantidad
+        }
         int seleccionada = tablaRobots.getSelectedRow();
         modeloRobots.robots = ciudad.getRobots();
         modeloRobots.fireTableDataChanged();
@@ -115,8 +127,13 @@ public final class PanelRobots extends JPanel {
     private static final class ModeloRobots extends AbstractTableModel {
         private static final String[] COLUMNAS =
                 {"Robot", "Tipo", "Av", "Ca", "Mira al", "Flores", "Papeles", "Estado"};
+        private static final int COL_FLORES = 5;
+        private static final int COL_PAPELES = 6;
 
         private List<Robot> robots = List.of();
+
+        /** Las bolsas sólo se pueden tocar con el programa detenido. */
+        private BooleanSupplier edicionHabilitada = () -> false;
 
         @Override
         public int getRowCount() {
@@ -134,16 +151,43 @@ public final class PanelRobots extends JPanel {
         }
 
         @Override
+        public Class<?> getColumnClass(int columna) {
+            return columna == COL_FLORES || columna == COL_PAPELES ? Integer.class : String.class;
+        }
+
+        @Override
+        public boolean isCellEditable(int fila, int columna) {
+            return (columna == COL_FLORES || columna == COL_PAPELES) && edicionHabilitada.getAsBoolean();
+        }
+
+        @Override
+        public void setValueAt(Object valor, int fila, int columna) {
+            int cantidad;
+            try {
+                cantidad = Integer.parseInt(String.valueOf(valor).trim());
+            } catch (NumberFormatException e) {
+                return;
+            }
+            Robot r = robots.get(fila);
+            if (columna == COL_FLORES) {
+                r.setFloresIniciales(cantidad);
+            } else {
+                r.setPapelesIniciales(cantidad);
+            }
+            fireTableRowsUpdated(fila, fila);
+        }
+
+        @Override
         public Object getValueAt(int fila, int columna) {
             Robot r = robots.get(fila);
             return switch (columna) {
                 case 0 -> r.getNombre();
                 case 1 -> r.getTipoRobot();
-                case 2 -> r.estaIniciado() ? r.getAv() : "-";
-                case 3 -> r.estaIniciado() ? r.getCa() : "-";
+                case 2 -> r.estaIniciado() ? String.valueOf(r.getAv()) : "-";
+                case 3 -> r.estaIniciado() ? String.valueOf(r.getCa()) : "-";
                 case 4 -> r.estaIniciado() ? r.getDireccion().name().toLowerCase() : "-";
-                case 5 -> r.getFloresEnBolsa();
-                case 6 -> r.getPapelesEnBolsa();
+                case COL_FLORES -> r.getFloresEnBolsa();
+                case COL_PAPELES -> r.getPapelesEnBolsa();
                 default -> r.getEstado();
             };
         }
