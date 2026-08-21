@@ -292,6 +292,30 @@ ok:= i > 3 + 1                { se lee ((i > 3) + 1): error de tipos }
 Los que necesitan flores o papeles traen en un comentario la línea de comandos
 con la que probarlos.
 
+## Distribución
+
+`build.ps1` arma los artefactos en `build/`:
+
+```powershell
+.uild.ps1
+```
+
+Deja `build-info.jar` (135 KB). Se abre con doble clic o con `java -jar
+r-info.jar`, y acepta los mismos argumentos que `rinfo.Rinfo`, así que también
+sirve para el modo sin ventana. Necesita **Java 21 o superior** instalado.
+
+```powershell
+.uild.ps1 -Nativo
+```
+
+Agrega `build-Info-1.0.0-windows.zip` (31 MB): una carpeta con `r-Info.exe`,
+su propio runtime de Java recortado y los ejemplos. Se descomprime y se ejecuta
+**sin tener Java instalado**.
+
+El detalle que importa: el script compila con `--release 21` y no con la versión
+del JDK que tengas. Si se compila con JDK 25 sin esa opción, el `.class` exige
+Java 25 en la máquina que lo corra, que es algo que casi nadie tiene.
+
 ## Estructura del código
 
 | Paquete | Contenido |
