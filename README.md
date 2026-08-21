@@ -59,6 +59,41 @@ derecho borra la esquina y la herramienta se elige en la barra superior. Los
 sliders regulan la velocidad y el zoom. El panel de la derecha muestra la
 posición y la bolsa de cada robot, y las variables del que esté seleccionado.
 
+## Cómo se arma la ciudad sin el mouse
+
+**Ciudad → Colocar…** (`Ctrl+L`) abre un diálogo no modal que se puede dejar
+abierto mientras se arma el escenario:
+
+- **En una esquina**: elegir qué (flor, papel u obstáculo), la cantidad, la
+  avenida y la calle.
+- **Al azar**: una cantidad repartida dentro de un rectángulo. Con «una por
+  esquina» marcado no apila ni pisa esquinas ocupadas, y avisa si no entraron
+  todas.
+- **Vaciar**: deja sin contenido la zona elegida en «Al azar».
+
+Un obstáculo y el contenido de una esquina se excluyen: poner un obstáculo
+vacía la esquina, y poner flores o papeles saca el obstáculo.
+
+Lo mismo desde la consola, que además hace el escenario reproducible:
+
+```bash
+java -cp out rinfo.Rinfo ejemplos/limpieza.rinfo --papel 1,2 --papel 1,4,3
+java -cp out rinfo.Rinfo ejemplos/limpieza.rinfo --azar-papel 5,1,1,1,5
+```
+
+| Opción | Qué hace |
+|---|---|
+| `--ciudad AVxCA` | tamaño de la ciudad |
+| `--flor AV,CA[,N]` | deja N flores en esa esquina (N por omisión 1) |
+| `--papel AV,CA[,N]` | deja N papeles en esa esquina |
+| `--obstaculo AV,CA` | pone un obstáculo |
+| `--azar-flor N[,AV1,CA1,AV2,CA2]` | reparte N flores al azar en la zona |
+| `--azar-papel N[,…]` | ídem con papeles |
+| `--azar-obstaculo N[,…]` | ídem con obstáculos |
+
+Si se omite la zona se usa toda la ciudad. Las opciones se pueden repetir.
+`java -cp out rinfo.Rinfo --ayuda` las lista.
+
 ## El lenguaje
 
 ```
@@ -101,6 +136,43 @@ variables
 
 Un robot sólo puede pisar las esquinas de las áreas que se le asignaron: sin
 `AsignarArea` no arranca. Dos áreas no se pueden superponer.
+
+### Varios robots
+
+Cada **variable de tipo robot** crea una instancia. Para tener más de un robot
+alcanza con declarar más variables, y cada una corre en su propio hilo:
+
+```
+robots
+  robot obrero
+  comenzar
+    mover
+  fin
+variables
+  a, b, c: obrero          { tres robots del mismo tipo }
+comenzar
+  AsignarArea(a, zona1)
+  AsignarArea(b, zona2)
+  AsignarArea(c, zona3)
+  Iniciar(a, 1, 1)
+  Iniciar(b, 5, 1)
+  Iniciar(c, 9, 1)
+fin
+```
+
+También se pueden declarar varios tipos distintos en el bloque `robots` y
+mezclarlos. Tres cosas para tener en cuenta:
+
+- Cada robot necesita su `AsignarArea` antes del `Iniciar`, y las áreas no se
+  pueden superponer. Si querés que compartan terreno, usá una sola `AreaC` y
+  asignásela a todos.
+- Dos robots no pueden estar en la misma esquina: si se cruzan, la corrida
+  aborta con un choque.
+- Los nombres que se usan en `EnviarMensaje` y `RecibirMensaje` son los de
+  las variables, no los de los tipos.
+
+Ejemplos: [`mensajes.rinfo`](ejemplos/mensajes.rinfo) y
+[`esquina-compartida.rinfo`](ejemplos/esquina-compartida.rinfo).
 
 ### Procesos
 
@@ -154,6 +226,20 @@ que **hay que poner paréntesis** alrededor de las comparaciones:
 ok:= (i > 3) & (i <= 100)     { bien }
 ok:= i > 3 + 1                { se lee ((i > 3) + 1): error de tipos }
 ```
+
+## Ejemplos
+
+| Archivo | Qué muestra |
+|---|---|
+| [`hola.rinfo`](ejemplos/hola.rinfo) | lo mínimo: un robot que da una vuelta |
+| [`procesos.rinfo`](ejemplos/procesos.rinfo) | procesos con parámetros `E`, `S` y `ES`, `si`/`sino`, `mientras` |
+| [`varios-robots.rinfo`](ejemplos/varios-robots.rinfo) | tres instancias del mismo tipo, una por área |
+| [`mensajes.rinfo`](ejemplos/mensajes.rinfo) | `EnviarMensaje` y `RecibirMensaje` entre dos robots |
+| [`esquina-compartida.rinfo`](ejemplos/esquina-compartida.rinfo) | `BloquearEsquina` sobre un `AreaC` compartida |
+| [`limpieza.rinfo`](ejemplos/limpieza.rinfo) | junta papeles; se combina con las opciones de colocación |
+
+Los que necesitan flores o papeles traen en un comentario la línea de comandos
+con la que probarlos.
 
 ## Estructura del código
 

@@ -1,0 +1,25 @@
+programa Limpieza
+{ Junta los papeles que encuentre subiendo por la avenida 1.
+  Probalo con: --papel 1,2 --papel 1,4,3   o con: --azar-papel 5,1,1,1,5 }
+areas
+  zona: AreaP(1, 1, 5, 5)
+robots
+  robot limpiador
+  variables
+    juntados: numero
+  comenzar
+    juntados:= 0
+    repetir 5
+      mientras HayPapelEnLaEsquina
+        tomarPapel
+        juntados:= juntados + 1
+      si PosCa < 5
+        mover
+    Informar('junte', juntados, 'papeles y quede en', PosAv, PosCa)
+  fin
+variables
+  r: limpiador
+comenzar
+  AsignarArea(r, zona)
+  Iniciar(r, 1, 1)
+fin

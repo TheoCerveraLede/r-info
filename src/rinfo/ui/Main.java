@@ -65,6 +65,7 @@ public final class Main extends JFrame {
 
     private Simulacion simulacion;
     private Path archivoActual;
+    private DialogoColocar dialogoColocar;
 
     private final JButton botonEjecutar = new JButton("Ejecutar");
     private final JButton botonPaso = new JButton("Paso");
@@ -213,6 +214,7 @@ public final class Main extends JFrame {
         menu.add(ejecucion);
 
         JMenu ciudadMenu = new JMenu("Ciudad");
+        ciudadMenu.add(item("Colocar…", KeyEvent.VK_L, this::abrirColocar));
         ciudadMenu.add(item("Tamaño…", 0, this::cambiarTamanio));
         ciudadMenu.add(item("Vaciar esquinas", 0, () -> {
             ciudad.limpiarTodo();
@@ -425,6 +427,20 @@ public final class Main extends JFrame {
     // Ciudad
     // ------------------------------------------------------------------
 
+    /** Diálogo para poblar la ciudad sin usar el mouse sobre la grilla. */
+    private void abrirColocar() {
+        if (estaCorriendo()) {
+            error("No se puede editar la ciudad mientras corre un programa.");
+            return;
+        }
+        if (dialogoColocar == null) {
+            dialogoColocar = new DialogoColocar(this, ciudad, this::traza, vistaCiudad::repaint);
+        }
+        dialogoColocar.prepararParaMostrar();
+        dialogoColocar.setVisible(true);
+        dialogoColocar.toFront();
+    }
+
     private void cambiarTamanio() {
         String respuesta = JOptionPane.showInputDialog(this,
                 "Avenidas x calles (máximo " + Ciudad.MAXIMO + " cada una):",
@@ -438,6 +454,9 @@ public final class Main extends JFrame {
             ciudad.setNumCa(Integer.parseInt(partes[1].trim()));
             vistaCiudad.revalidate();
             vistaCiudad.repaint();
+            if (dialogoColocar != null) {
+                dialogoColocar.prepararParaMostrar();
+            }
             traza("Ciudad de " + ciudad.getNumAv() + " avenidas por " + ciudad.getNumCa() + " calles.");
         } catch (RuntimeException e) {
             error("Formato inválido. Se espera algo como 20x15.");
@@ -592,6 +611,17 @@ public final class Main extends JFrame {
               Leer(v), Random(v, desde, hasta)
               EnviarMensaje(expr, robot), RecibirMensaje(v, robot)
               BloquearEsquina(av, ca), LiberarEsquina(av, ca)
+
+            VARIOS ROBOTS
+              Cada variable de tipo robot es una instancia y corre en su propio
+              hilo: "a, b, c: obrero" crea tres. Cada uno necesita su
+              AsignarArea antes del Iniciar, y dos robots no pueden ocupar la
+              misma esquina.
+
+            ARMAR LA CIUDAD
+              Ciudad -> Colocar... (Ctrl+L) pone flores, papeles y obstáculos
+              en una esquina exacta o repartidos al azar en una zona, sin usar
+              el mouse sobre la grilla.
 
             CONSULTAS
               PosAv, PosCa, HayObstaculo

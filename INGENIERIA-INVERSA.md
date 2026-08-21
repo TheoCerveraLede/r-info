@@ -163,7 +163,9 @@ programa válido en r-Info deja de andar por esto.
 3. **`Informar` con un solo texto.** El original exige al menos una expresión
    después del literal; acá `Informar('listo')` es válido.
 4. **Texto literal de varias palabras.** El original toma un único
-   identificador entre comillas; acá se admite `'varias palabras'`.
+   identificador entre comillas; acá se admite `'varias palabras'`. El literal
+   se lexea como tokens y se vuelve a unir con un espacio, así que la
+   puntuación queda separada: `'listo:'` se imprime como `listo :`.
 5. **Variables inicializadas.** `numero` arranca en 0 y `boolean` en `F`, en
    vez de quedar sin valor.
 6. **Errores con posición.** Los mensajes de compilación incluyen línea y
@@ -174,3 +176,7 @@ programa válido en r-Info deja de andar por esto.
    variables). No se copió ningún recurso del original.
 8. **Sin `Compe`/`Compedos`.** Las clases de competencia del original, que
    abrían sockets, no se reimplementaron.
+9. **Armado de la ciudad.** El original tenía `form.Configuraciones` (una
+   grilla de números) y `random.Ventana`, que quedó como prototipo sin
+   terminar. Se reemplazaron por el diálogo *Ciudad → Colocar…* y por las
+   opciones equivalentes de la línea de comandos.

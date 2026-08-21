@@ -1,9 +1,11 @@
 package rinfo.runtime;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * La grilla sobre la que se mueven los robots.
@@ -67,6 +69,105 @@ public final class Ciudad {
 
     public boolean hayObstaculo(int av, int ca) {
         return dentro(av, ca) && esquinas[av][ca].tieneObstaculo();
+    }
+
+    // --- Contenido de las esquinas ---------------------------------------
+
+    /**
+     * Deja {@code cantidad} unidades de {@code que} en una esquina.
+     *
+     * <p>Un obstáculo y el contenido de la esquina se excluyen: poner un
+     * obstáculo vacía la esquina y poner flores o papeles saca el obstáculo.
+     *
+     * @throws IllegalArgumentException si la esquina cae fuera de la ciudad
+     */
+    public void colocar(Contenido que, int av, int ca, int cantidad) {
+        if (!dentro(av, ca)) {
+            throw new IllegalArgumentException(
+                    "la esquina (av " + av + ", ca " + ca + ") está fuera de la ciudad");
+        }
+        if (cantidad < 1) {
+            return;
+        }
+        Esquina esquina = esquinas[av][ca];
+        switch (que) {
+            case OBSTACULO -> {
+                esquina.limpiar();
+                esquina.setObstaculo(true);
+            }
+            case FLOR -> {
+                esquina.setObstaculo(false);
+                esquina.setFlores(esquina.getFlores() + cantidad);
+            }
+            case PAPEL -> {
+                esquina.setObstaculo(false);
+                esquina.setPapeles(esquina.getPapeles() + cantidad);
+            }
+        }
+    }
+
+    /**
+     * Reparte {@code cantidad} unidades de {@code que} al azar dentro del
+     * rectángulo indicado.
+     *
+     * @param unaPorEsquina si es {@code true} cada esquina recibe como mucho
+     *                      una unidad y se saltean las que ya tienen algo, de
+     *                      modo que puede colocar menos de lo pedido
+     * @return cuántas unidades se colocaron realmente
+     */
+    public int colocarAlAzar(Contenido que, int cantidad,
+                             int av1, int ca1, int av2, int ca2, boolean unaPorEsquina) {
+        int desdeAv = Math.min(av1, av2);
+        int hastaAv = Math.max(av1, av2);
+        int desdeCa = Math.min(ca1, ca2);
+        int hastaCa = Math.max(ca1, ca2);
+        if (!dentro(desdeAv, desdeCa) || !dentro(hastaAv, hastaCa)) {
+            throw new IllegalArgumentException("el rango se sale de la ciudad");
+        }
+        if (cantidad < 1) {
+            return 0;
+        }
+
+        if (!unaPorEsquina) {
+            var azar = ThreadLocalRandom.current();
+            for (int i = 0; i < cantidad; i++) {
+                colocar(que, azar.nextInt(desdeAv, hastaAv + 1), azar.nextInt(desdeCa, hastaCa + 1), 1);
+            }
+            return cantidad;
+        }
+
+        List<int[]> libres = new ArrayList<>();
+        for (int av = desdeAv; av <= hastaAv; av++) {
+            for (int ca = desdeCa; ca <= hastaCa; ca++) {
+                if (estaVacia(av, ca)) {
+                    libres.add(new int[] {av, ca});
+                }
+            }
+        }
+        Collections.shuffle(libres);
+        int colocadas = Math.min(cantidad, libres.size());
+        for (int i = 0; i < colocadas; i++) {
+            colocar(que, libres.get(i)[0], libres.get(i)[1], 1);
+        }
+        return colocadas;
+    }
+
+    public boolean estaVacia(int av, int ca) {
+        Esquina esquina = esquinas[av][ca];
+        return esquina.getFlores() == 0 && esquina.getPapeles() == 0 && !esquina.tieneObstaculo();
+    }
+
+    /** Deja sin contenido todas las esquinas del rectángulo. */
+    public void vaciar(int av1, int ca1, int av2, int ca2) {
+        int desdeAv = Math.clamp(Math.min(av1, av2), 1, numAv);
+        int hastaAv = Math.clamp(Math.max(av1, av2), 1, numAv);
+        int desdeCa = Math.clamp(Math.min(ca1, ca2), 1, numCa);
+        int hastaCa = Math.clamp(Math.max(ca1, ca2), 1, numCa);
+        for (int av = desdeAv; av <= hastaAv; av++) {
+            for (int ca = desdeCa; ca <= hastaCa; ca++) {
+                esquinas[av][ca].limpiar();
+            }
+        }
     }
 
     // --- Robots ---------------------------------------------------------

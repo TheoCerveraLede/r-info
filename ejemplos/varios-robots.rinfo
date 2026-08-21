@@ -1,0 +1,31 @@
+programa VariosRobots
+{ Tres instancias del mismo tipo de robot, cada una en su propia area.
+  Probalo con: --azar-flor 12,1,1,9,4 }
+areas
+  zonaA: AreaP(1, 1, 3, 4)
+  zonaB: AreaP(4, 1, 6, 4)
+  zonaC: AreaP(7, 1, 9, 4)
+robots
+  robot recolector
+  variables
+    juntadas: numero
+  comenzar
+    juntadas:= 0
+    repetir 4
+      mientras HayFlorEnLaEsquina
+        tomarFlor
+        juntadas:= juntadas + 1
+      si PosCa < 4
+        mover
+    Informar('junte', juntadas, 'flores subiendo por la avenida', PosAv)
+  fin
+variables
+  a, b, c: recolector
+comenzar
+  AsignarArea(a, zonaA)
+  AsignarArea(b, zonaB)
+  AsignarArea(c, zonaC)
+  Iniciar(a, 1, 1)
+  Iniciar(b, 4, 1)
+  Iniciar(c, 7, 1)
+fin
