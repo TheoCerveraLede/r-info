@@ -1,7 +1,6 @@
 package rinfo.ui;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.event.KeyEvent;
@@ -17,6 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JButton;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -33,7 +33,6 @@ import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -106,7 +105,34 @@ public final class Main extends JFrame {
         editor.colorear();
         editor.setCaretPosition(0);
         actualizarBotones(false);
+        Tema.alCambiar(this::aplicarTema);
         refresco.start();
+    }
+
+    /**
+     * Reaplica el tema a toda la ventana.
+     *
+     * <p>{@code updateComponentTreeUI} reconstruye los componentes estándar con
+     * el look and feel nuevo, pero pisa los colores propios, así que hay que
+     * volver a ponerlos después.
+     */
+    private void aplicarTema() {
+        SwingUtilities.updateComponentTreeUI(this);
+        if (dialogoColocar != null) {
+            SwingUtilities.updateComponentTreeUI(dialogoColocar);
+        }
+        aplicarTemaAConsola();
+        editor.aplicarTema();
+        vistaCiudad.aplicarTema();
+        panelRobots.aplicarTema();
+        repaint();
+    }
+
+    private void aplicarTemaAConsola() {
+        Tema tema = Tema.actual();
+        consola.setBackground(tema.consolaFondo);
+        consola.setForeground(tema.consolaTexto);
+        consola.setCaretColor(tema.consolaTexto);
     }
 
     // ------------------------------------------------------------------
@@ -125,9 +151,7 @@ public final class Main extends JFrame {
 
         consola.setEditable(false);
         consola.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-        consola.setBackground(new Color(0x1E2227));
-        consola.setForeground(new Color(0xD8DEE4));
-        consola.setCaretColor(Color.WHITE);
+        aplicarTemaAConsola();
         JScrollPane scrollConsola = new JScrollPane(consola);
         scrollConsola.setPreferredSize(new Dimension(0, 150));
 
@@ -244,6 +268,15 @@ public final class Main extends JFrame {
             traza("Ciudad vaciada.");
         }));
         menu.add(ciudadMenu);
+
+        JMenu ver = new JMenu("Ver");
+        JCheckBoxMenuItem oscuro = new JCheckBoxMenuItem("Modo oscuro", Tema.esOscuro());
+        oscuro.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_D,
+                java.awt.Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        oscuro.addActionListener(e -> Tema.cambiar(
+                oscuro.isSelected() ? Tema.Modo.OSCURO : Tema.Modo.CLARO));
+        ver.add(oscuro);
+        menu.add(ver);
 
         JMenu ayuda = new JMenu("Ayuda");
         ayuda.add(item("Referencia del lenguaje", 0, this::mostrarReferencia));
@@ -679,6 +712,10 @@ public final class Main extends JFrame {
               AsignarArea antes del Iniciar, y dos robots no pueden ocupar la
               misma esquina.
 
+            MODO OSCURO
+              Ver -> Modo oscuro (Ctrl+D) cambia el tema en caliente y lo
+              recuerda para la próxima vez.
+
             ARMAR LA CIUDAD
               Ciudad -> Colocar... (Ctrl+L) pone flores, papeles y obstáculos
               sin usar el mouse: en una esquina exacta, en cada esquina de una
@@ -708,11 +745,7 @@ public final class Main extends JFrame {
             """;
 
     public static void main(String[] args) {
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (ReflectiveOperationException | javax.swing.UnsupportedLookAndFeelException e) {
-            // el aspecto por defecto sirve igual
-        }
+        Tema.instalarLookAndFeel();
         SwingUtilities.invokeLater(() -> new Main().setVisible(true));
     }
 }

@@ -27,6 +27,7 @@ public final class PanelRobots extends JPanel {
     private final ModeloRobots modeloRobots = new ModeloRobots();
     private final ModeloVariables modeloVariables = new ModeloVariables();
     private final JTable tablaRobots = new JTable(modeloRobots);
+    private final JLabel pista;
     private Simulacion simulacion;
 
     public PanelRobots(Ciudad ciudad) {
@@ -65,7 +66,8 @@ public final class PanelRobots extends JPanel {
                 + "«Flores» y «Papeles»: son las bolsas con las que arranca cada robot.");
         pista.setBorder(BorderFactory.createEmptyBorder(2, 8, 6, 8));
         pista.setFont(pista.getFont().deriveFont(java.awt.Font.PLAIN, 11f));
-        pista.setForeground(new java.awt.Color(0x60686A));
+        pista.setForeground(Tema.actual().pista);
+        this.pista = pista;
         arriba.add(pista, BorderLayout.SOUTH);
 
         JPanel abajo = new JPanel(new BorderLayout());
@@ -83,6 +85,11 @@ public final class PanelRobots extends JPanel {
         etiqueta.setBorder(BorderFactory.createEmptyBorder(6, 8, 4, 8));
         etiqueta.setFont(etiqueta.getFont().deriveFont(java.awt.Font.BOLD));
         return etiqueta;
+    }
+
+    /** Relee los colores del tema vigente. */
+    public void aplicarTema() {
+        pista.setForeground(Tema.actual().pista);
     }
 
     public void setSimulacion(Simulacion simulacion) {

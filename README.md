@@ -53,6 +53,14 @@ acción.
 | `F9` | compilar (marca la línea del error) |
 | `F5` | ejecutar, o continuar si está en pausa |
 | `F7` | avanzar una acción por robot |
+| `Ctrl+L` | colocar en la ciudad |
+| `Ctrl+D` | alternar modo claro y oscuro |
+
+**Ver → Modo oscuro** (`Ctrl+D`) cambia el tema en caliente y lo recuerda para
+la próxima vez. Alcanza a todo: ciudad, editor, regla de líneas, tablas y
+consola. El claro usa el look and feel del sistema y el oscuro usa Nimbus, que
+es el único que viene con el JDK cuya paleta se puede reemplazar entera — así
+no hace falta ninguna dependencia externa.
 
 Con el mouse sobre la ciudad se colocan flores, papeles y obstáculos; el clic
 derecho borra la esquina y la herramienta se elige en la barra superior. Los
@@ -300,7 +308,8 @@ con la que probarlos.
 .uild.ps1
 ```
 
-Deja `build-info.jar` (135 KB). Se abre con doble clic o con `java -jar
+Deja `build
+-info.jar` (135 KB). Se abre con doble clic o con `java -jar
 r-info.jar`, y acepta los mismos argumentos que `rinfo.Rinfo`, así que también
 sirve para el modo sin ventana. Necesita **Java 21 o superior** instalado.
 
@@ -308,7 +317,8 @@ sirve para el modo sin ventana. Necesita **Java 21 o superior** instalado.
 .uild.ps1 -Nativo
 ```
 
-Agrega `build-Info-1.0.0-windows.zip` (31 MB): una carpeta con `r-Info.exe`,
+Agrega `build
+-Info-1.0.0-windows.zip` (31 MB): una carpeta con `r-Info.exe`,
 su propio runtime de Java recortado y los ejemplos. Se descomprime y se ejecuta
 **sin tener Java instalado**.
 

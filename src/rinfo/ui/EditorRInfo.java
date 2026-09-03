@@ -31,15 +31,6 @@ import rinfo.lang.TipoToken;
  */
 public final class EditorRInfo extends JTextPane {
 
-    private static final Color COLOR_ESTRUCTURA = new Color(0x7B1FA2);
-    private static final Color COLOR_CONTROL = new Color(0x0D47A1);
-    private static final Color COLOR_PRIMITIVA = new Color(0x00695C);
-    private static final Color COLOR_CONSULTA = new Color(0xC2185B);
-    private static final Color COLOR_TIPO = new Color(0xE65100);
-    private static final Color COLOR_NUMERO = new Color(0x1565C0);
-    private static final Color COLOR_COMENTARIO = new Color(0x7A8B7A);
-    private static final Color COLOR_TEXTO_LITERAL = new Color(0x2E7D32);
-
     private static final Set<TipoToken> ESTRUCTURA = EnumSet.of(
             TipoToken.PROGRAMA, TipoToken.PROCESOS, TipoToken.PROCESO, TipoToken.AREAS,
             TipoToken.ROBOTS, TipoToken.ROBOT, TipoToken.VARIABLES, TipoToken.COMENZAR,
@@ -80,7 +71,7 @@ public final class EditorRInfo extends JTextPane {
 
     public EditorRInfo() {
         setFont(new Font(Font.MONOSPACED, Font.PLAIN, 14));
-        prepararEstilos();
+        aplicarTema();
         configurarTeclas();
 
         getDocument().addDocumentListener(new DocumentListener() {
@@ -101,20 +92,30 @@ public final class EditorRInfo extends JTextPane {
         });
     }
 
-    private void prepararEstilos() {
-        StyleConstants.setForeground(estiloNormal, new Color(0x22282A));
+    /** Rearma la paleta con el tema vigente y vuelve a colorear. */
+    public void aplicarTema() {
+        Tema tema = Tema.actual();
+        setBackground(tema.fondoEditor);
+        setForeground(tema.textoEditor);
+        setCaretColor(tema.textoEditor);
+        setSelectionColor(tema.seleccionEditor);
+        setSelectedTextColor(tema.textoEditor);
+
+        StyleConstants.setForeground(estiloNormal, tema.textoEditor);
         StyleConstants.setBold(estiloNormal, false);
 
-        StyleConstants.setForeground(estiloNumero, COLOR_NUMERO);
-        StyleConstants.setForeground(estiloComentario, COLOR_COMENTARIO);
+        StyleConstants.setForeground(estiloNumero, tema.numeroLiteral);
+        StyleConstants.setForeground(estiloComentario, tema.comentario);
         StyleConstants.setItalic(estiloComentario, true);
-        StyleConstants.setForeground(estiloLiteral, COLOR_TEXTO_LITERAL);
+        StyleConstants.setForeground(estiloLiteral, tema.textoLiteral);
 
-        registrar(ESTRUCTURA, COLOR_ESTRUCTURA, true);
-        registrar(CONTROL, COLOR_CONTROL, true);
-        registrar(PRIMITIVAS, COLOR_PRIMITIVA, false);
-        registrar(CONSULTAS, COLOR_CONSULTA, false);
-        registrar(TIPOS, COLOR_TIPO, false);
+        estilosPorPalabra.clear();
+        registrar(ESTRUCTURA, tema.estructura, true);
+        registrar(CONTROL, tema.control, true);
+        registrar(PRIMITIVAS, tema.primitiva, false);
+        registrar(CONSULTAS, tema.consulta, false);
+        registrar(TIPOS, tema.tipoDato, false);
+        colorear();
     }
 
     private void registrar(Set<TipoToken> tokens, Color color, boolean negrita) {

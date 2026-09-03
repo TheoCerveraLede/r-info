@@ -286,7 +286,7 @@ public final class DialogoColocar extends JDialog {
     private static JLabel enChico(String texto) {
         JLabel etiqueta = new JLabel(texto);
         etiqueta.setFont(etiqueta.getFont().deriveFont(Font.PLAIN, 11f));
-        etiqueta.setForeground(new java.awt.Color(0x60686A));
+        etiqueta.setForeground(Tema.actual().pista);
         return etiqueta;
     }
 

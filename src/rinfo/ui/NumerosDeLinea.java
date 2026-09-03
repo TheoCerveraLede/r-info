@@ -1,6 +1,5 @@
 package rinfo.ui;
 
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
@@ -19,10 +18,6 @@ import javax.swing.text.JTextComponent;
  * del texto usando las mismas métricas de fuente que el editor.
  */
 public final class NumerosDeLinea extends JComponent {
-
-    private static final Color FONDO = new Color(0xF0F0EC);
-    private static final Color BORDE = new Color(0xD5D8D2);
-    private static final Color TEXTO = new Color(0x98A098);
 
     private final JTextComponent editor;
 
@@ -67,15 +62,16 @@ public final class NumerosDeLinea extends JComponent {
 
     @Override
     protected void paintComponent(Graphics g) {
+        Tema tema = Tema.actual();
         Rectangle vista = g.getClipBounds();
-        g.setColor(FONDO);
+        g.setColor(tema.gutterFondo);
         g.fillRect(vista.x, vista.y, vista.width, vista.height);
-        g.setColor(BORDE);
+        g.setColor(tema.gutterBorde);
         g.drawLine(getWidth() - 1, vista.y, getWidth() - 1, vista.y + vista.height);
 
         g.setFont(editor.getFont());
         FontMetrics fm = g.getFontMetrics();
-        g.setColor(TEXTO);
+        g.setColor(tema.gutterTexto);
 
         var raiz = editor.getDocument().getDefaultRootElement();
         int primera = raiz.getElementIndex(editor.viewToModel2D(new java.awt.Point(0, vista.y)));
