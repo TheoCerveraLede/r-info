@@ -53,6 +53,8 @@ acción.
 | `F9` | compilar (marca la línea del error) |
 | `F5` | ejecutar, o continuar si está en pausa |
 | `F7` | avanzar una acción por robot |
+| `Ctrl+Z` / `Ctrl+Y` | deshacer y rehacer en el editor |
+| `Tab` / `Shift+Tab` | agregar o quitar dos espacios de sangría |
 | `Ctrl+L` | colocar en la ciudad |
 | `Ctrl+D` | alternar modo claro y oscuro |
 
@@ -64,8 +66,11 @@ no hace falta ninguna dependencia externa.
 
 Con el mouse sobre la ciudad se colocan flores, papeles y obstáculos; el clic
 derecho borra la esquina y la herramienta se elige en la barra superior. Los
-sliders regulan la velocidad y el zoom. El panel de la derecha muestra la
-posición y la bolsa de cada robot, y las variables del que esté seleccionado.
+sliders regulan la velocidad y el zoom. La ciudad dibuja el nombre de cada área,
+los candados sobre las esquinas tomadas con `BloquearEsquina` y las flechas de
+espera entre robots. El panel de la derecha muestra la posición, la bolsa, las
+variables y el buzón FIFO del robot seleccionado, además de la tabla de
+esquinas bloqueadas y la detección automática de interbloqueos (*deadlocks*).
 
 ## Las bolsas de los robots
 

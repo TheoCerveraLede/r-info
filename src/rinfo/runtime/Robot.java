@@ -46,6 +46,7 @@ public final class Robot {
     private final Buzon buzon = new Buzon();
     private volatile boolean iniciado;
     private volatile String estado = "nuevo";
+    private volatile int lineaActual;
 
     Robot(Ciudad ciudad, String nombre, String tipoRobot, int id) {
         this.ciudad = ciudad;
@@ -91,6 +92,14 @@ public final class Robot {
 
     public void setEstado(String estado) {
         this.estado = estado;
+    }
+
+    public int getLineaActual() {
+        return lineaActual;
+    }
+
+    public void setLineaActual(int lineaActual) {
+        this.lineaActual = lineaActual;
     }
 
     // --- Posición --------------------------------------------------------
@@ -172,6 +181,7 @@ public final class Robot {
         papelesEnBolsa = papelesIniciales;
         iniciado = false;
         estado = "listo";
+        lineaActual = 0;
     }
 
     // --- Áreas -----------------------------------------------------------

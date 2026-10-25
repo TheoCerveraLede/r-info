@@ -28,6 +28,7 @@ public final class Simulacion {
     private final Contexto contexto;
 
     private final Map<Robot, Interprete> interpretes = new LinkedHashMap<>();
+    private final Map<Robot, Thread> hilosPorRobot = new LinkedHashMap<>();
     private final List<Thread> hilos = new CopyOnWriteArrayList<>();
 
     private Thread hiloPrincipal;
@@ -44,6 +45,10 @@ public final class Simulacion {
 
     public ControlEjecucion getControl() {
         return control;
+    }
+
+    public MonitorEsquinas getEsquinas() {
+        return esquinas;
     }
 
     public synchronized Map<Robot, Interprete> getInterpretes() {
@@ -65,6 +70,7 @@ public final class Simulacion {
      * y se les pueda configurar el contenido inicial de la bolsa.
      */
     public void preparar() {
+        esquinas.limpiar();
         ciudad.limpiarEjecucion();
         ciudad.setAreas(programa.areas());
         for (DeclVar v : programa.variables()) {
@@ -102,8 +108,10 @@ public final class Simulacion {
             hilos.clear();
             synchronized (this) {
                 interpretes.clear();
+                hilosPorRobot.clear();
             }
             huboError = false;
+            esquinas.limpiar();
             control.reiniciar();
 
             if (!preparada) {
@@ -116,9 +124,7 @@ public final class Simulacion {
             }
             contexto.notificarCambio();
             ejecutarCuerpoPrincipal();
-            for (Thread t : hilos) {
-                t.join();
-            }
+            vigilarHilos();
             if (!huboError && !control.estaDetenido()) {
                 consola.traza("Ejecución finalizada.");
             }
@@ -127,7 +133,9 @@ public final class Simulacion {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
-            esquinas.limpiar();
+            if (!huboError) {
+                esquinas.limpiar();
+            }
             contexto.notificarCambio();
             if (alTerminar != null) {
                 alTerminar.run();
@@ -186,6 +194,9 @@ public final class Simulacion {
 
         Thread hilo = new Thread(() -> correrRobot(robot, interprete, tipo), "rinfo-" + robot.getNombre());
         hilo.setDaemon(true);
+        synchronized (this) {
+            hilosPorRobot.put(robot, hilo);
+        }
         hilos.add(hilo);
         hilo.start();
     }
@@ -198,12 +209,186 @@ public final class Simulacion {
             robot.setEstado("con error");
             reportarError(e.getMessage());
         } catch (InterruptedException e) {
-            robot.setEstado("detenido");
+            if (!"interbloqueo".equals(robot.getEstado())) {
+                robot.setEstado("detenido");
+            }
             Thread.currentThread().interrupt();
         } finally {
-            esquinas.liberarTodo(robot);
+            if (!huboError && !control.estaDetenido()) {
+                esquinas.liberarTodo(robot);
+            }
             contexto.notificarCambio();
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Vigilancia de concurrencia y detección de interbloqueos (deadlocks)
+    // ------------------------------------------------------------------
+
+    private record DiagnosticoInterbloqueo(String mensaje, List<Robot> involucrados) {}
+
+    private void vigilarHilos() throws InterruptedException {
+        while (!huboError && !control.estaDetenido() && algunHiloVivo()) {
+            Thread.sleep(50);
+            if (huboError || control.estaDetenido()) {
+                break;
+            }
+            DiagnosticoInterbloqueo candidato = diagnosticarInterbloqueo();
+            if (candidato != null) {
+                // Segunda comprobación breve para descartar transiciones entre hilos.
+                Thread.sleep(80);
+                DiagnosticoInterbloqueo confirmado = diagnosticarInterbloqueo();
+                if (confirmado != null) {
+                    for (Robot r : confirmado.involucrados()) {
+                        r.setEstado("interbloqueo");
+                    }
+                    esquinas.abortar();
+                    for (Robot r : ciudad.getRobots()) {
+                        r.getBuzon().abortar();
+                    }
+                    reportarError(confirmado.mensaje());
+                    break;
+                }
+            }
+        }
+        for (Thread t : hilos) {
+            t.join(200);
+        }
+    }
+
+    private boolean algunHiloVivo() {
+        for (Thread t : hilos) {
+            if (t.isAlive()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private synchronized Thread hiloDe(Robot robot) {
+        return hilosPorRobot.get(robot);
+    }
+
+    private boolean hiloVivo(Robot robot) {
+        Thread t = hiloDe(robot);
+        return t != null && t.isAlive();
+    }
+
+    /**
+     * Indica si {@code robot} está detenido en un monitor de concurrencia
+     * ({@code BloquearEsquina} o {@code RecibirMensaje}).
+     */
+    private boolean esperandoConcurrencia(Robot robot) {
+        Thread t = hiloDe(robot);
+        if (t == null || !t.isAlive() || t.getState() != Thread.State.WAITING) {
+            return false;
+        }
+        if (esquinas.esperaDe(robot) != null) {
+            return true;
+        }
+        String emisor = robot.getBuzon().getEsperandoDe();
+        return emisor != null && !robot.getBuzon().tieneMensajeDe(emisor);
+    }
+
+    /** Robot concreto del que depende {@code robot} para destrabarse, o {@code null}. */
+    private Robot dependenciaDirecta(Robot robot) {
+        var espEsquina = esquinas.esperaDe(robot);
+        if (espEsquina != null) {
+            return espEsquina.duenio();
+        }
+        String emisor = robot.getBuzon().getEsperandoDe();
+        if (emisor != null && !Buzon.COMODIN.equals(emisor)) {
+            return ciudad.getRobot(emisor);
+        }
+        return null;
+    }
+
+    private String describirEspera(Robot robot) {
+        String linea = robot.getLineaActual() > 0 ? " (línea " + robot.getLineaActual() + ")" : "";
+        var espEsquina = esquinas.esperaDe(robot);
+        if (espEsquina != null) {
+            String duenio = espEsquina.duenio() != null
+                    ? " retenida por " + espEsquina.duenio().getNombre()
+                    : "";
+            return robot.getNombre() + linea + " espera la esquina ("
+                    + espEsquina.av() + ", " + espEsquina.ca() + ")" + duenio;
+        }
+        String emisor = robot.getBuzon().getEsperandoDe();
+        if (emisor != null) {
+            String quien = Buzon.COMODIN.equals(emisor) ? "cualquier robot (*)" : emisor;
+            return robot.getNombre() + linea + " espera un mensaje de " + quien;
+        }
+        return robot.getNombre() + linea;
+    }
+
+    private DiagnosticoInterbloqueo diagnosticarInterbloqueo() {
+        List<Robot> todos = ciudad.getRobots();
+
+        // 1. Ciclos de espera directa o espera a un robot ya finalizado.
+        for (Robot inicio : todos) {
+            if (!esperandoConcurrencia(inicio)) {
+                continue;
+            }
+            List<Robot> camino = new ArrayList<>();
+            Robot actual = inicio;
+            while (actual != null && esperandoConcurrencia(actual)) {
+                int idx = camino.indexOf(actual);
+                if (idx >= 0) {
+                    List<Robot> ciclo = List.copyOf(camino.subList(idx, camino.size()));
+                    StringBuilder sb = new StringBuilder("interbloqueo (deadlock) detectado: ");
+                    for (int i = 0; i < ciclo.size(); i++) {
+                        if (i > 0) {
+                            sb.append(" -> ");
+                        }
+                        sb.append(describirEspera(ciclo.get(i)));
+                    }
+                    sb.append(" -> ").append(actual.getNombre());
+                    return new DiagnosticoInterbloqueo(sb.toString(), ciclo);
+                }
+                camino.add(actual);
+                Robot siguiente = dependenciaDirecta(actual);
+                if (siguiente != null && !hiloVivo(siguiente)) {
+                    // Si esperaba mensaje de un robot que ya terminó y no dejó mensaje en el buzón.
+                    String esp = actual.getBuzon().getEsperandoDe();
+                    if (esp != null && !actual.getBuzon().tieneMensajeDe(esp)) {
+                        String msg = "bloqueo permanente: " + describirEspera(actual)
+                                + ", pero " + siguiente.getNombre() + " ya " + siguiente.getEstado();
+                        return new DiagnosticoInterbloqueo(msg, List.copyOf(camino));
+                    }
+                }
+                actual = siguiente;
+            }
+        }
+
+        // 2. Bloqueo global: todos los robots vivos están bloqueados en concurrencia
+        // (por ejemplo, esperando RecibirMensaje con comodín * sin emisores activos).
+        List<Robot> vivos = new ArrayList<>();
+        for (Robot r : todos) {
+            if (hiloVivo(r)) {
+                vivos.add(r);
+            }
+        }
+        if (!vivos.isEmpty()) {
+            boolean todosBloqueados = true;
+            for (Robot r : vivos) {
+                if (!esperandoConcurrencia(r)) {
+                    todosBloqueados = false;
+                    break;
+                }
+            }
+            if (todosBloqueados) {
+                StringBuilder sb = new StringBuilder("interbloqueo (deadlock) detectado: ");
+                for (int i = 0; i < vivos.size(); i++) {
+                    if (i > 0) {
+                        sb.append("; ");
+                    }
+                    sb.append(describirEspera(vivos.get(i)));
+                }
+                return new DiagnosticoInterbloqueo(sb.toString(), List.copyOf(vivos));
+            }
+        }
+
+        return null;
     }
 
     /** El primer error corta la corrida entera. */

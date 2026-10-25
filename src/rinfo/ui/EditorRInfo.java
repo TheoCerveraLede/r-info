@@ -2,7 +2,10 @@ package rinfo.ui;
 
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,10 +18,12 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.text.AbstractDocument;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
+import javax.swing.undo.UndoManager;
 import rinfo.lang.TipoToken;
 
 /**
@@ -66,6 +71,7 @@ public final class EditorRInfo extends JTextPane {
     private final SimpleAttributeSet estiloNumero = new SimpleAttributeSet();
     private final SimpleAttributeSet estiloComentario = new SimpleAttributeSet();
     private final SimpleAttributeSet estiloLiteral = new SimpleAttributeSet();
+    private final UndoManager historial = new UndoManager();
 
     private boolean coloreando;
 
@@ -73,6 +79,17 @@ public final class EditorRInfo extends JTextPane {
         setFont(new Font(Font.MONOSPACED, Font.PLAIN, 14));
         aplicarTema();
         configurarTeclas();
+
+        getDocument().addUndoableEditListener(e -> {
+            if (coloreando) {
+                return;
+            }
+            if (e.getEdit() instanceof AbstractDocument.DefaultDocumentEvent ev
+                    && ev.getType() == DocumentEvent.EventType.CHANGE) {
+                return; // ignorar cambios de estilo del coloreado
+            }
+            historial.addEdit(e.getEdit());
+        });
 
         getDocument().addDocumentListener(new DocumentListener() {
             @Override
@@ -128,11 +145,22 @@ public final class EditorRInfo extends JTextPane {
     }
 
     private void configurarTeclas() {
+        int ctrl = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+
         getInputMap().put(KeyStroke.getKeyStroke("TAB"), "sangrar");
         getActionMap().put("sangrar", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 replaceSelection("  ");
+            }
+        });
+
+        getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_TAB, InputEvent.SHIFT_DOWN_MASK),
+                "quitarSangria");
+        getActionMap().put("quitarSangria", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                quitarSangriaDeLaLineaActual();
             }
         });
 
@@ -143,6 +171,62 @@ public final class EditorRInfo extends JTextPane {
                 replaceSelection("\n" + sangriaDeLaLineaActual());
             }
         });
+
+        getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, ctrl), "deshacer");
+        getActionMap().put("deshacer", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                deshacer();
+            }
+        });
+
+        getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, ctrl), "rehacer");
+        getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, ctrl | InputEvent.SHIFT_DOWN_MASK),
+                "rehacer");
+        getActionMap().put("rehacer", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                rehacer();
+            }
+        });
+    }
+
+    @Override
+    public void setText(String t) {
+        super.setText(t);
+        if (historial != null) {
+            historial.discardAllEdits();
+        }
+    }
+
+    public void deshacer() {
+        if (historial.canUndo()) {
+            historial.undo();
+        }
+    }
+
+    public void rehacer() {
+        if (historial.canRedo()) {
+            historial.redo();
+        }
+    }
+
+    private void quitarSangriaDeLaLineaActual() {
+        try {
+            var doc = getDocument();
+            String texto = doc.getText(0, getCaretPosition());
+            int inicio = texto.lastIndexOf('\n') + 1;
+            String completo = doc.getText(0, doc.getLength());
+            int quitar = 0;
+            while (quitar < 2 && inicio + quitar < completo.length()
+                    && completo.charAt(inicio + quitar) == ' ') {
+                quitar++;
+            }
+            if (quitar > 0) {
+                doc.remove(inicio, quitar);
+            }
+        } catch (BadLocationException ignored) {
+        }
     }
 
     private String sangriaDeLaLineaActual() {

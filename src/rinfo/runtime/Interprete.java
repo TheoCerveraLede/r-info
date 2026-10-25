@@ -61,6 +61,9 @@ public final class Interprete {
     }
 
     private void ejecutar(Sent sentencia, Entorno env) throws ErrorEjecucion, InterruptedException {
+        if (sentencia.fila() > 0) {
+            robot.setLineaActual(sentencia.fila());
+        }
         switch (sentencia) {
             case Sent.Accion a -> ejecutarAccion(a);
 
@@ -124,6 +127,7 @@ public final class Interprete {
                     throw new ErrorEjecucion("EnviarMensaje: no existe el robot '" + e.destino() + "'");
                 }
                 destino.getBuzon().depositar(robot.getNombre(), evaluar(e.valor(), env));
+                ctx.notificarCambio();
             }
 
             case Sent.RecibirMensaje r -> {
@@ -134,21 +138,29 @@ public final class Interprete {
                 robot.setEstado(deCualquiera
                         ? "esperando un mensaje de cualquiera"
                         : "esperando mensaje de " + r.origen());
-                Object valor = robot.getBuzon().recibir(r.origen());
+                Object valor = robot.getBuzon().recibir(r.origen(), ctx::notificarCambio);
                 robot.setEstado("en ejecución");
                 env.escribir(r.variable(), valor);
+                ctx.notificarCambio();
             }
 
             case Sent.BloquearEsquina b -> {
                 int av = entero(b.av(), env);
                 int ca = entero(b.ca(), env);
+                if (!ctx.ciudad.dentro(av, ca)) {
+                    throw new ErrorEjecucion("BloquearEsquina: la esquina (av " + av
+                            + ", ca " + ca + ") está fuera de la ciudad");
+                }
                 robot.setEstado("esperando la esquina (" + av + ", " + ca + ")");
-                ctx.esquinas.bloquear(robot, av, ca);
+                ctx.esquinas.bloquear(robot, av, ca, ctx::notificarCambio);
                 robot.setEstado("en ejecución");
+                tras();
             }
 
-            case Sent.LiberarEsquina l ->
-                    ctx.esquinas.liberar(robot, entero(l.av(), env), entero(l.ca(), env));
+            case Sent.LiberarEsquina l -> {
+                ctx.esquinas.liberar(robot, entero(l.av(), env), entero(l.ca(), env));
+                tras();
+            }
 
             case Sent.AsignarArea ignored ->
                     throw new ErrorEjecucion("AsignarArea sólo se puede usar en el cuerpo del programa");

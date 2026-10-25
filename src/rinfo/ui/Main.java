@@ -238,6 +238,11 @@ public final class Main extends JFrame {
         archivo.add(item("Salir", 0, () -> dispose()));
         menu.add(archivo);
 
+        JMenu edicion = new JMenu("Edición");
+        edicion.add(item("Deshacer", KeyEvent.VK_Z, editor::deshacer));
+        edicion.add(item("Rehacer", KeyEvent.VK_Y, editor::rehacer));
+        menu.add(edicion);
+
         JMenu ejecucion = new JMenu("Ejecución");
         JMenuItem compilar = new JMenuItem("Compilar");
         compilar.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F9, 0));
@@ -391,6 +396,7 @@ public final class Main extends JFrame {
                 vistaSucia.set(true);
             }));
             simulacion.preparar();
+            vistaCiudad.setSimulacion(simulacion);
             panelRobots.setSimulacion(simulacion);
             fuenteVigente = true;
             vistaSucia.set(true);
@@ -498,6 +504,7 @@ public final class Main extends JFrame {
         simulacion = null;
         programaCompilado = null;
         fuenteVigente = false;
+        vistaCiudad.setSimulacion(null);
         panelRobots.setSimulacion(null);
     }
 

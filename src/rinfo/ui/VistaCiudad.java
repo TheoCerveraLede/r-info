@@ -11,13 +11,18 @@ import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Path2D;
+import java.util.List;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import javax.swing.ToolTipManager;
 import rinfo.runtime.Area;
+import rinfo.runtime.Buzon;
 import rinfo.runtime.Ciudad;
 import rinfo.runtime.Direccion;
 import rinfo.runtime.Esquina;
+import rinfo.runtime.MonitorEsquinas;
 import rinfo.runtime.Robot;
+import rinfo.runtime.Simulacion;
 
 /**
  * Dibujo de la ciudad: calles, áreas, contenido de las esquinas y robots.
@@ -49,6 +54,7 @@ public final class VistaCiudad extends JPanel {
     private static final int MARGEN = 22;
 
     private final Ciudad ciudad;
+    private Simulacion simulacion;
     private int tamanioBloque = 26;
     private Herramienta herramienta = Herramienta.FLOR;
     private boolean edicionHabilitada = true;
@@ -57,6 +63,7 @@ public final class VistaCiudad extends JPanel {
     public VistaCiudad(Ciudad ciudad) {
         this.ciudad = ciudad;
         setOpaque(true);
+        ToolTipManager.sharedInstance().registerComponent(this);
         aplicarTema();
 
         MouseAdapter raton = new MouseAdapter() {
@@ -90,6 +97,11 @@ public final class VistaCiudad extends JPanel {
 
     public void setAlEditar(Runnable alEditar) {
         this.alEditar = alEditar;
+    }
+
+    public void setSimulacion(Simulacion simulacion) {
+        this.simulacion = simulacion;
+        repaint();
     }
 
     public int getTamanioBloque() {
@@ -172,8 +184,10 @@ public final class VistaCiudad extends JPanel {
         dibujarManzanas(g2, tema);
         dibujarAreas(g2, tema);
         dibujarCalles(g2, tema);
+        dibujarBloqueos(g2, tema);
         dibujarContenido(g2, tema);
         dibujarRutas(g2, tema);
+        dibujarEsperasMensajes(g2, tema);
         dibujarRobots(g2, tema);
         dibujarNumeracion(g2, tema);
 
@@ -193,6 +207,7 @@ public final class VistaCiudad extends JPanel {
     }
 
     private void dibujarAreas(Graphics2D g2, Tema tema) {
+        Font fuenteArea = getFont().deriveFont(Font.BOLD, Math.max(9f, tamanioBloque * 0.32f));
         for (Area area : ciudad.getAreas()) {
             Color base = tema.visible(area.getColor());
             g2.setColor(Tema.conAlfa(base, tema.alfaArea));
@@ -204,6 +219,13 @@ public final class VistaCiudad extends JPanel {
             g2.setColor(Tema.conAlfa(base, tema.alfaBordeArea));
             g2.setStroke(new BasicStroke(1.5f));
             g2.drawRoundRect(x, y, ancho, alto, 8, 8);
+
+            if (tamanioBloque >= 18) {
+                g2.setFont(fuenteArea);
+                g2.setColor(Tema.conAlfa(base, 220));
+                String etiqueta = area.getNombre() + " (" + area.getTipo().nombre + ")";
+                g2.drawString(etiqueta, x + 5, y + g2.getFontMetrics().getAscent() + 2);
+            }
         }
     }
 
@@ -278,6 +300,133 @@ public final class VistaCiudad extends JPanel {
         }
     }
 
+    /** Dibuja las esquinas tomadas con BloquearEsquina y las flechas de quienes esperan. */
+    private void dibujarBloqueos(Graphics2D g2, Tema tema) {
+        if (simulacion == null) {
+            return;
+        }
+        List<MonitorEsquinas.Bloqueo> bloqueos = simulacion.getEsquinas().instantanea();
+        if (bloqueos.isEmpty()) {
+            return;
+        }
+        int lado = Math.max(12, (int) (tamanioBloque * 0.76));
+        int mitad = lado / 2;
+        Font fuente = getFont().deriveFont(Font.BOLD, Math.max(8f, tamanioBloque * 0.30f));
+
+        for (MonitorEsquinas.Bloqueo b : bloqueos) {
+            int x = avAx(b.av());
+            int y = caAy(b.ca());
+            Color colorDuenio = tema.visible(b.duenio().getColor());
+
+            // Recuadro de esquina tomada con el color del robot dueño
+            g2.setColor(Tema.conAlfa(colorDuenio, 55));
+            g2.fillRoundRect(x - mitad, y - mitad, lado, lado, 6, 6);
+            g2.setColor(colorDuenio);
+            g2.setStroke(new BasicStroke(2f));
+            g2.drawRoundRect(x - mitad, y - mitad, lado, lado, 6, 6);
+
+            // Candado vectorial y nombre del dueño arriba del recuadro
+            int tamCandado = Math.max(7, tamanioBloque / 3);
+            dibujarCandado(g2, x - mitad - 2, y - mitad - 2, tamCandado,
+                    colorDuenio, tema.fondoCiudad);
+
+            if (tamanioBloque >= 20 && (b.duenio().getAv() != b.av() || b.duenio().getCa() != b.ca())) {
+                g2.setFont(fuente);
+                g2.setColor(colorDuenio);
+                g2.drawString(b.duenio().getNombre(), x - mitad + tamCandado + 2, y - mitad + tamCandado - 2);
+            }
+
+            // Flechas punteadas desde cada robot que está bloqueado esperando esta esquina
+            for (Robot esperando : b.esperando()) {
+                if (esperando.estaIniciado()) {
+                    Color colorEsp = tema.visible(esperando.getColor());
+                    dibujarFlechaEspera(g2, avAx(esperando.getAv()), caAy(esperando.getCa()),
+                            x, y, mitad + 3, colorEsp, new float[] {5f, 4f});
+                }
+            }
+        }
+    }
+
+    /** Dibuja flechas punteadas e indicadores cuando un robot espera o acumula mensajes. */
+    private void dibujarEsperasMensajes(Graphics2D g2, Tema tema) {
+        Font fuente = getFont().deriveFont(Font.BOLD, Math.max(8f, tamanioBloque * 0.30f));
+        g2.setFont(fuente);
+
+        for (Robot robot : ciudad.getRobots()) {
+            if (!robot.estaIniciado()) {
+                continue;
+            }
+            int rx = avAx(robot.getAv());
+            int ry = caAy(robot.getCa());
+            Color colorRobot = tema.visible(robot.getColor());
+
+            String esperandoDe = robot.getBuzon().getEsperandoDe();
+            if (esperandoDe != null && !Buzon.COMODIN.equals(esperandoDe)) {
+                Robot emisor = ciudad.getRobot(esperandoDe);
+                if (emisor != null && emisor.estaIniciado()) {
+                    int margen = Math.max(6, (int) (tamanioBloque * 0.35));
+                    dibujarFlechaEspera(g2, rx, ry, avAx(emisor.getAv()), caAy(emisor.getCa()),
+                            margen, colorRobot, new float[] {2.5f, 3.5f});
+                }
+            }
+
+            if (tamanioBloque >= 20) {
+                int lado = Math.max(8, (int) (tamanioBloque * 0.62));
+                int pendientes = robot.getBuzon().cantidadPendientes();
+                if (esperandoDe != null) {
+                    g2.setColor(colorRobot);
+                    g2.drawString("?✉ " + esperandoDe, rx + lado / 2 + 2, ry + lado / 2 + 3);
+                } else if (pendientes > 0) {
+                    g2.setColor(colorRobot);
+                    g2.drawString("✉" + pendientes, rx + lado / 2 + 2, ry + lado / 2 + 3);
+                }
+            }
+        }
+    }
+
+    private static void dibujarCandado(Graphics2D g2, int x, int y, int tam, Color color, Color fondo) {
+        int ancho = Math.max(6, tam);
+        int altoCuerpo = Math.max(5, (tam * 3) / 5);
+        int arco = Math.max(4, ancho - 2);
+        int cy = y + tam - altoCuerpo;
+
+        g2.setColor(fondo);
+        g2.fillRoundRect(x - 1, cy - 1, ancho + 2, altoCuerpo + 2, 3, 3);
+        g2.setColor(color);
+        g2.setStroke(new BasicStroke(1.4f));
+        g2.drawArc(x + (ancho - arco) / 2, y, arco, arco, 0, 180);
+        g2.fillRoundRect(x, cy, ancho, altoCuerpo, 3, 3);
+    }
+
+    private static void dibujarFlechaEspera(Graphics2D g2, int x1, int y1, int x2, int y2,
+                                            int margenDestino, Color color, float[] patron) {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double dist = Math.hypot(dx, dy);
+        if (dist <= margenDestino + 4) {
+            return;
+        }
+        double angulo = Math.atan2(dy, dx);
+        double fx = x2 - margenDestino * Math.cos(angulo);
+        double fy = y2 - margenDestino * Math.sin(angulo);
+
+        g2.setColor(Tema.conAlfa(color, 210));
+        g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
+                10f, patron, 0f));
+        g2.drawLine(x1, y1, (int) Math.round(fx), (int) Math.round(fy));
+
+        double largoPunta = 7.5;
+        Path2D punta = new Path2D.Double();
+        punta.moveTo(fx, fy);
+        punta.lineTo(fx - largoPunta * Math.cos(angulo - Math.PI / 6),
+                fy - largoPunta * Math.sin(angulo - Math.PI / 6));
+        punta.lineTo(fx - largoPunta * Math.cos(angulo + Math.PI / 6),
+                fy - largoPunta * Math.sin(angulo + Math.PI / 6));
+        punta.closePath();
+        g2.setStroke(new BasicStroke(1f));
+        g2.fill(punta);
+    }
+
     private void dibujarRobots(Graphics2D g2, Tema tema) {
         for (Robot robot : ciudad.getRobots()) {
             if (!robot.estaIniciado()) {
@@ -337,5 +486,59 @@ public final class VistaCiudad extends JPanel {
         for (int ca = 1; ca <= ciudad.getNumCa(); ca += paso) {
             g2.drawString(String.valueOf(ca), avAx(1) - MARGEN + 2, caAy(ca) + 4);
         }
+    }
+
+    @Override
+    public String getToolTipText(MouseEvent e) {
+        Point p = esquinaEn(e.getX(), e.getY());
+        if (p == null) {
+            return null;
+        }
+        int av = p.x;
+        int ca = p.y;
+        StringBuilder sb = new StringBuilder("<html><b>Esquina (av ")
+                .append(av).append(", ca ").append(ca).append(")</b>");
+
+        Esquina esq = ciudad.esquinaCruda(av, ca);
+        if (esq.tieneObstaculo()) {
+            sb.append("<br>Obstáculo");
+        } else if (esq.getFlores() > 0 || esq.getPapeles() > 0) {
+            sb.append("<br>Flores: ").append(esq.getFlores())
+                    .append(" · Papeles: ").append(esq.getPapeles());
+        }
+
+        for (Area a : ciudad.getAreas()) {
+            if (a.contiene(av, ca)) {
+                sb.append("<br>Área: <b>").append(a.getNombre()).append("</b> (")
+                        .append(a.getTipo().nombre).append(")");
+            }
+        }
+
+        if (simulacion != null) {
+            for (MonitorEsquinas.Bloqueo b : simulacion.getEsquinas().instantanea()) {
+                if (b.av() == av && b.ca() == ca) {
+                    sb.append("<br>🔒 Bloqueada por <b>").append(b.duenio().getNombre()).append("</b>");
+                    if (!b.esperando().isEmpty()) {
+                        sb.append(" (esperando: ");
+                        for (int i = 0; i < b.esperando().size(); i++) {
+                            if (i > 0) {
+                                sb.append(", ");
+                            }
+                            sb.append(b.esperando().get(i).getNombre());
+                        }
+                        sb.append(")");
+                    }
+                }
+            }
+        }
+
+        for (Robot r : ciudad.getRobots()) {
+            if (r.estaIniciado() && r.getAv() == av && r.getCa() == ca) {
+                sb.append("<br>Robot <b>").append(r.getNombre()).append("</b> (")
+                        .append(r.getEstado()).append(")");
+            }
+        }
+        sb.append("</html>");
+        return sb.toString();
     }
 }

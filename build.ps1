@@ -9,7 +9,7 @@
 param([switch]$Nativo)
 
 $ErrorActionPreference = "Stop"
-$version = "1.0.0"
+$version = "1.1.0"
 
 Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force build\clases | Out-Null
